@@ -1,0 +1,12 @@
+{
+  "name": "driver-queue-print-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-thermal-printer": "^4.4.0",
+    "node-bluetooth-serial-port": "^2.2.8"
+  }
+}
