@@ -65,7 +65,9 @@ function App() {
         <Route path="/queue/print/:ticketId" element={<PrintPage />} />
         <Route path="/queue/screens/internal" element={<ScreenInternalPage />} />
         <Route path="/queue/screens/external" element={<ScreenExternalPage />} />
-        
+        <Route path="/register" element={<Navigate to="/queue/issue" replace />} />
+        <Route path="/issue" element={<Navigate to="/queue/issue" replace />} />
+        <Route path="/operator" element={<Navigate to="/queue/operator" replace />} />
         <Route
           path="/queue/issue"
           element={
