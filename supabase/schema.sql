@@ -113,17 +113,14 @@ ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
--- Profiles: admins can view all profiles
-CREATE POLICY "Admins can view all profiles" ON profiles
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+-- Profiles: users can update their own profile
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE 
+  USING (auth.uid() = id) 
+  WITH CHECK (auth.uid() = id);
 
--- Profiles: admins can update profiles
-CREATE POLICY "Admins can update profiles" ON profiles
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+-- Note: Admin operations on profiles should be done via Netlify Functions 
+-- using service role, not via client-side RLS to avoid recursion.
 
 -- Queue tickets: authenticated users can view
 CREATE POLICY "Authenticated users can view tickets" ON queue_tickets

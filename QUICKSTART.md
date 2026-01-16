@@ -66,12 +66,30 @@ After logging in as admin, go to `/queue/admin` to:
 ## Key URLs
 
 - `/login` - Login page
-- `/queue/issue` - Issue tickets (reception_security role)
-- `/queue/operator` - Operator workspace
-- `/queue/reports` - Reports (admin only)
-- `/queue/admin` - User management (admin only)
-- `/queue/screens/internal` - Internal TV screen
-- `/queue/screens/external` - External TV screen
+- `/dashboard` - Dashboard (admin only)
+- `/operator/reg` - Operator workspace for Registration queue
+- `/operator/tech` - Operator workspace for Technical queue
+- `/issue` - Issue tickets (reception_security role)
+- `/screens` - TV screens display
+- `/reports` - Reports (admin only)
+- `/admin` - User management (admin only)
+- `/settings` - System settings (admin only)
+
+## UI/UX Improvements
+
+The application now features:
+- **Responsive Layout**: Works on mobile, tablet, and desktop
+- **Sidebar Navigation**: Easy menu navigation with role-based access
+- **Top Bar**: Shows current user and logout button
+- **Modern UI Components**: Consistent design with Tailwind CSS
+- **Error Handling**: Better error messages and loading states
+
+## RLS Fix
+
+If you see blank screen or 500 errors after login, run the migration:
+1. Go to Supabase Dashboard > SQL Editor
+2. Run the contents of `supabase/migrations/001_fix_profiles_rls.sql`
+3. This fixes recursive RLS policies that can cause errors
 
 ## Troubleshooting
 

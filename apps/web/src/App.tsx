@@ -1,59 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { supabase } from './lib/supabase';
-import { getProfile } from './lib/auth';
-import type { Profile } from './types';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AppLayout } from './components/layout/AppLayout';
+import { ProtectedRoute } from './components/routes/ProtectedRoute';
 
-import LoginPage from './pages/Login';
-import IssuePage from './pages/Issue';
-import OperatorPage from './pages/Operator';
-import ReportsPage from './pages/Reports';
-import AdminPage from './pages/Admin';
-import PrintPage from './pages/Print';
-import ScreenInternalPage from './pages/ScreenInternal';
-import ScreenExternalPage from './pages/ScreenExternal';
-import ProtectedRoute from './components/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
+import { Dashboard } from './pages/Dashboard';
+import { OperatorPage } from './pages/OperatorPage';
+import { IssuePage } from './pages/IssuePage';
+import { ScreensPage } from './pages/ScreensPage';
+import { ReportsPage } from './pages/Reports';
+import { AdminPage } from './pages/Admin';
+import { SettingsPage } from './pages/SettingsPage';
+import { PrintPage } from './pages/Print';
+import { NotFound } from './pages/NotFound';
 
-function App() {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile();
-      } else {
-        setLoading(false);
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile();
-      } else {
-        setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadProfile = async () => {
-    const p = await getProfile();
-    setProfile(p);
-    setLoading(false);
-  };
+function AppRoutes() {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Загрузка...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Загрузка...</p>
+        </div>
       </div>
     );
   }
@@ -61,52 +31,131 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+        {/* Public routes */}
+        <Route
+          path="/login"
+          element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />}
+        />
         <Route path="/queue/print/:ticketId" element={<PrintPage />} />
-        <Route path="/queue/screens/internal" element={<ScreenInternalPage />} />
-        <Route path="/queue/screens/external" element={<ScreenExternalPage />} />
-        <Route path="/register" element={<Navigate to="/queue/issue" replace />} />
-        <Route path="/issue" element={<Navigate to="/queue/issue" replace />} />
-        <Route path="/operator" element={<Navigate to="/queue/operator" replace />} />
+
+        {/* Protected routes with layout */}
         <Route
-          path="/queue/issue"
+          path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'reception_security']} profile={profile}>
-              <IssuePage />
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
-        
+
         <Route
-          path="/queue/operator"
+          path="/operator/:queueType"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator_queue']} profile={profile}>
-              <OperatorPage profile={profile} />
+            <ProtectedRoute allowedRoles={['admin', 'operator_queue']}>
+              <AppLayout>
+                <OperatorPage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
-        
+
         <Route
-          path="/queue/reports"
+          path="/issue"
           element={
-            <ProtectedRoute allowedRoles={['admin']} profile={profile}>
-              <ReportsPage />
+            <ProtectedRoute allowedRoles={['admin', 'reception_security']}>
+              <AppLayout>
+                <IssuePage />
+              </AppLayout>
             </ProtectedRoute>
           }
         />
-        
+
         <Route
-          path="/queue/admin"
+          path="/screens"
           element={
-            <ProtectedRoute allowedRoles={['admin']} profile={profile}>
-              <AdminPage />
+            <ProtectedRoute allowedRoles={['admin', 'operator_queue', 'reception_security']}>
+              <ScreensPage />
             </ProtectedRoute>
           }
         />
-        
-        <Route path="/" element={<Navigate to={user ? "/queue/operator" : "/login"} replace />} />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AppLayout>
+                <ReportsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AppLayout>
+                <AdminPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AppLayout>
+                <SettingsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Legacy routes - redirects */}
+        <Route path="/queue/issue" element={<Navigate to="/issue" replace />} />
+        <Route path="/queue/operator" element={<Navigate to="/operator/reg" replace />} />
+        <Route path="/queue/reports" element={<Navigate to="/reports" replace />} />
+        <Route path="/queue/admin" element={<Navigate to="/admin" replace />} />
+        <Route
+          path="/queue/screens/internal"
+          element={<Navigate to="/screens" replace />}
+        />
+        <Route
+          path="/queue/screens/external"
+          element={<Navigate to="/screens" replace />}
+        />
+
+        {/* Root redirect */}
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to={user ? getDefaultRouteForUser() : '/login'}
+              replace
+            />
+          }
+        />
+
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+  );
+}
+
+function getDefaultRouteForUser(): string {
+  // This will be determined by ProtectedRoute based on role
+  return '/dashboard';
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }
 

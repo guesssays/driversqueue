@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../lib/api';
-import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
-import type { Profile, SystemConfig, UserRole, QueueType } from '../types';
+import type { Profile, UserRole, QueueType } from '../types';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
-export default function AdminPage() {
-  const navigate = useNavigate();
+export function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'config'>('users');
 
   const { data: users, refetch: refetchUsers } = useQuery({
@@ -28,34 +28,14 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateConfig = async (updates: Partial<SystemConfig>) => {
-    try {
-      await adminApi.updateConfig(updates);
-      refetchConfig();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка обновления');
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Администрирование</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-          >
-            Выход
-          </button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Администрирование</h1>
+        <p className="text-gray-600">Управление пользователями</p>
+      </div>
 
-        <div className="bg-white rounded-lg shadow-md">
+      <Card padding="none">
           <div className="border-b">
             <div className="flex">
               <button
@@ -85,8 +65,13 @@ export default function AdminPage() {
             {activeTab === 'users' && (
               <div>
                 <h2 className="text-xl font-bold mb-4">Управление пользователями</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                {!users ? (
+                  <div className="flex items-center justify-center py-12">
+                    <LoadingSpinner size="lg" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-2">ID</th>
@@ -105,54 +90,20 @@ export default function AdminPage() {
                         />
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
-            {activeTab === 'config' && config && (
+            {activeTab === 'config' && (
               <div>
-                <h2 className="text-xl font-bold mb-4">Настройки системы</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">URL логотипа</label>
-                    <input
-                      type="url"
-                      value={config.logo_url}
-                      onChange={(e) => handleUpdateConfig({ logo_url: e.target.value })}
-                      className="w-full px-3 py-2 border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={config.qr_enabled}
-                        onChange={(e) => handleUpdateConfig({ qr_enabled: e.target.checked })}
-                      />
-                      <span>Включить QR-коды на билетах</span>
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Дней хранения данных</label>
-                    <input
-                      type="number"
-                      value={config.retention_days}
-                      onChange={(e) => handleUpdateConfig({ retention_days: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border rounded"
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Часовой пояс</label>
-                    <input
-                      type="text"
-                      value={config.timezone}
-                      onChange={(e) => handleUpdateConfig({ timezone: e.target.value })}
-                      className="w-full px-3 py-2 border rounded"
-                    />
-                  </div>
-                </div>
+                <p className="text-gray-600 mb-4">
+                  Настройки системы перенесены на отдельную страницу.
+                </p>
+                <Button variant="primary" onClick={() => window.location.href = '/settings'}>
+                  Перейти в Настройки
+                </Button>
               </div>
             )}
           </div>
@@ -222,17 +173,17 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
       <td className="p-2">
         {editing ? (
           <div className="flex gap-2">
-            <button onClick={handleSave} className="px-2 py-1 bg-blue-600 text-white text-sm rounded">
+            <Button onClick={handleSave} size="sm" variant="primary">
               Сохранить
-            </button>
-            <button onClick={() => setEditing(false)} className="px-2 py-1 bg-gray-400 text-white text-sm rounded">
+            </Button>
+            <Button onClick={() => setEditing(false)} size="sm" variant="secondary">
               Отмена
-            </button>
+            </Button>
           </div>
         ) : (
-          <button onClick={() => setEditing(true)} className="px-2 py-1 bg-blue-600 text-white text-sm rounded">
+          <Button onClick={() => setEditing(true)} size="sm" variant="primary">
             Редактировать
-          </button>
+          </Button>
         )}
       </td>
     </tr>

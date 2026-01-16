@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportApi } from '../lib/api';
-import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
 import { DateTime } from 'luxon';
 import type { ReportFilters, QueueType } from '../types';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { Download } from 'lucide-react';
 
-export default function ReportsPage() {
-  const navigate = useNavigate();
+export function ReportsPage() {
   const [filters, setFilters] = useState<ReportFilters>({
     from: DateTime.now().setZone('Asia/Tashkent').minus({ days: 7 }).toISODate() || '',
     to: DateTime.now().setZone('Asia/Tashkent').toISODate() || '',
@@ -35,19 +36,13 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Отчеты</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-          >
-            Выход
-          </button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Отчеты</h1>
+        <p className="text-gray-600">Аналитика и статистика по билетам</p>
+      </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <Card>
           <h2 className="text-xl font-bold mb-4">Фильтры</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -81,22 +76,26 @@ export default function ReportsPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <button
+              <Button
                 onClick={handleExport}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                variant="primary"
+                className="w-full"
               >
+                <Download className="h-4 w-4 mr-2" />
                 Экспорт в Excel
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="text-center py-8">Загрузка...</div>
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
         ) : report ? (
           <div className="space-y-6">
             {/* Summary */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card>
               <h2 className="text-xl font-bold mb-4">Сводка</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-blue-50 rounded">
@@ -116,7 +115,7 @@ export default function ReportsPage() {
 
             {/* By Operator */}
             {report.byOperator.length > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <Card>
                 <h2 className="text-xl font-bold mb-4">По операторам</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -144,7 +143,7 @@ export default function ReportsPage() {
             )}
 
             {/* Tickets List */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <Card>
               <h2 className="text-xl font-bold mb-4">Билеты ({report.tickets.length})</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -172,10 +171,9 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           </div>
         ) : null}
-      </div>
     </div>
   );
 }

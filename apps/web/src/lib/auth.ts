@@ -16,7 +16,12 @@ export async function getProfile(): Promise<Profile | null> {
     .eq('id', user.id)
     .single();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error('Error fetching profile:', error);
+    throw new Error(error.message || 'Failed to load profile');
+  }
+
+  if (!data) return null;
   return data;
 }
 
