@@ -14,11 +14,6 @@ export function AdminPage() {
     queryFn: () => adminApi.getUsers(),
   });
 
-  const { data: config, refetch: refetchConfig } = useQuery({
-    queryKey: ['admin-config'],
-    queryFn: () => adminApi.getConfig(),
-  });
-
   const handleUpdateUser = async (userId: string, updates: Partial<Profile>) => {
     try {
       await adminApi.updateUser(userId, updates);

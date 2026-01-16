@@ -11,7 +11,7 @@ import { ScreensPage } from './pages/ScreensPage';
 import { ReportsPage } from './pages/Reports';
 import { AdminPage } from './pages/Admin';
 import { SettingsPage } from './pages/SettingsPage';
-import { PrintPage } from './pages/Print';
+import PrintPage from './pages/Print';
 import { NotFound } from './pages/NotFound';
 
 function AppRoutes() {
