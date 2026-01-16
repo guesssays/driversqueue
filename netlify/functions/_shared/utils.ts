@@ -1,3 +1,4 @@
+import { HandlerResponse } from '@netlify/functions';
 import { DateTime } from 'luxon';
 
 export function getTashkentDate(): DateTime {
@@ -12,7 +13,7 @@ export function parseDate(dateStr: string): DateTime {
   return DateTime.fromISO(dateStr, { zone: 'Asia/Tashkent' });
 }
 
-export function corsHeaders() {
+export function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -20,16 +21,17 @@ export function corsHeaders() {
   };
 }
 
-export function jsonResponse(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
+export function jsonResponse(data: any, statusCode = 200): HandlerResponse {
+  return {
+    statusCode,
     headers: {
       'Content-Type': 'application/json',
       ...corsHeaders(),
     },
-  });
+    body: JSON.stringify(data),
+  };
 }
 
-export function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
+export function errorResponse(message: string, statusCode = 400): HandlerResponse {
+  return jsonResponse({ error: message }, statusCode);
 }

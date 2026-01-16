@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import { getUserFromRequest, requireRole } from './_shared/supabase';
 import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse, getTashkentDateString } from './_shared/utils';
+import { jsonResponse, errorResponse, getTashkentDateString, corsHeaders } from './_shared/utils';
 import { z } from 'zod';
 
 const issueSchema = z.object({
@@ -10,7 +10,11 @@ const issueSchema = z.object({
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return jsonResponse({});
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: '',
+    };
   }
 
   try {

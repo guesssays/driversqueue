@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queueApi } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,6 @@ interface OperatorPageProps {
 export default function OperatorPage({ profile }: OperatorPageProps) {
   const [queueType, setQueueType] = useState<QueueType | null>(null);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (profile) {

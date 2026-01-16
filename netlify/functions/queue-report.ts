@@ -1,12 +1,16 @@
 import { Handler } from '@netlify/functions';
 import { getUserFromRequest, requireRole } from './_shared/supabase';
 import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse } from './_shared/utils';
+import { jsonResponse, errorResponse, corsHeaders } from './_shared/utils';
 import { DateTime } from 'luxon';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return jsonResponse({});
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: '',
+    };
   }
 
   try {

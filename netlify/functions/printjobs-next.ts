@@ -1,15 +1,19 @@
 import { Handler } from '@netlify/functions';
 import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse } from './_shared/utils';
+import { jsonResponse, errorResponse, corsHeaders } from './_shared/utils';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return jsonResponse({});
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: '',
+    };
   }
 
   try {
     // Check secret for print service
-    const authHeader = event.headers['x-print-secret'] || event.headers['X-Print-Secret'];
+    const authHeader = event.headers?.['x-print-secret'] || event.headers?.['X-Print-Secret'];
     const expectedSecret = process.env.PRINT_SERVICE_SECRET;
 
     if (!expectedSecret || authHeader !== expectedSecret) {

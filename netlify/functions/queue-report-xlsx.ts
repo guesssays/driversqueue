@@ -1,20 +1,17 @@
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerResponse } from '@netlify/functions';
 import { getUserFromRequest, requireRole } from './_shared/supabase';
 import { supabaseAdmin } from './_shared/supabase';
-import { errorResponse } from './_shared/utils';
+import { errorResponse, corsHeaders } from './_shared/utils';
 import { DateTime } from 'luxon';
 import ExcelJS from 'exceljs';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      },
-    });
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: '',
+    };
   }
 
   try {
@@ -119,14 +116,16 @@ export const handler: Handler = async (event) => {
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
-    return new Response(buffer, {
-      status: 200,
+    return {
+      statusCode: 200,
+      isBase64Encoded: true,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="queue-report-${from}-${to}.xlsx"`,
-        'Access-Control-Allow-Origin': '*',
+        ...corsHeaders(),
       },
-    });
+      body: Buffer.from(buffer).toString('base64'),
+    } as HandlerResponse;
   } catch (error: any) {
     console.error('Error in queue-report-xlsx:', error);
     return errorResponse(error.message || 'Internal server error', 500);

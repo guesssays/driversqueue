@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { QueueType, TicketStatus, ReportFilters, ReportData, Profile, SystemConfig } from '../types';
+import type { QueueType, ReportFilters, ReportData, Profile, SystemConfig } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,6 @@ import type { Profile, SystemConfig, UserRole, QueueType } from '../types';
 
 export default function AdminPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'users' | 'config'>('users');
 
   const { data: users, refetch: refetchUsers } = useQuery({
