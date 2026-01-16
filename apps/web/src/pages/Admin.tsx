@@ -36,42 +36,42 @@ export function AdminPage() {
       </div>
 
       <Card padding="none">
-          <div className="border-b">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab('users')}
-                className={`px-6 py-3 font-medium ${
-                  activeTab === 'users'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Пользователи
-              </button>
-              <button
-                onClick={() => setActiveTab('config')}
-                className={`px-6 py-3 font-medium ${
-                  activeTab === 'config'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                Настройки
-              </button>
-            </div>
+        <div className="border-b">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'users'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Пользователи
+            </button>
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'config'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Настройки
+            </button>
           </div>
+        </div>
 
-          <div className="p-6">
-            {activeTab === 'users' && (
-              <div>
-                <h2 className="text-xl font-bold mb-4">Управление пользователями</h2>
-                {!users ? (
-                  <div className="flex items-center justify-center py-12">
-                    <LoadingSpinner size="lg" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+        <div className="p-6">
+          {activeTab === 'users' && (
+            <div>
+              <h2 className="text-xl font-bold mb-4">Управление пользователями</h2>
+              {!users ? (
+                <div className="flex items-center justify-center py-12">
+                  <LoadingSpinner size="lg" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-2">ID</th>
@@ -90,25 +90,24 @@ export function AdminPage() {
                         />
                       ))}
                     </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
-            {activeTab === 'config' && (
-              <div>
-                <p className="text-gray-600 mb-4">
-                  Настройки системы перенесены на отдельную страницу.
-                </p>
-                <Button variant="primary" onClick={() => window.location.href = '/settings'}>
-                  Перейти в Настройки
-                </Button>
-              </div>
-            )}
-          </div>
+          {activeTab === 'config' && (
+            <div>
+              <p className="text-gray-600 mb-4">
+                Настройки системы перенесены на отдельную страницу.
+              </p>
+              <Button variant="primary" onClick={() => window.location.href = '/settings'}>
+                Перейти в Настройки
+              </Button>
+            </div>
+          )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
