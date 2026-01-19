@@ -19,11 +19,19 @@ export function IssuePage() {
     setError('');
 
     try {
+      // Wait for API call to complete and get ticket data
       const result = await queueApi.issue(selectedQueue);
+      
+      // Ensure we have ticket ID before opening print window
+      if (!result.ticket?.id) {
+        throw new Error('Не удалось получить ID билета');
+      }
+      
       setLastTicket(result.ticket.ticket_number);
       
-      // Open print page in new window
-      const printUrl = `${window.location.origin}${result.printUrl}`;
+      // Open print page in new window with ticketId as query parameter
+      // Only open after ticket is successfully created
+      const printUrl = `${window.location.origin}/print?ticketId=${result.ticket.id}`;
       window.open(printUrl, '_blank');
       
       // Refresh screen state

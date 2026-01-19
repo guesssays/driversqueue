@@ -60,8 +60,18 @@ Visit http://localhost:3000 and log in with your admin credentials.
 After logging in as admin, go to `/queue/admin` to:
 - Create users (create in Supabase Auth first, then assign role in admin panel)
 - Assign operators to queues
-- Set window labels
+- Set window number (1-6) for operators - this will be displayed on TV screens
 - Configure system settings
+
+### Setting Window Numbers
+
+For operators with role `operator_queue`, you can set a window number from 1 to 6:
+1. Go to `/admin` page
+2. Click "Редактировать" (Edit) for an operator user
+3. Select "Окно" (Window) dropdown and choose a number (1-6)
+4. Click "Сохранить" (Save)
+
+The window number will be displayed on TV screens as "Oyna 1", "Oyna 2", etc. (Uzbek) or "Окно 1", "Окно 2" (Russian).
 
 ## Key URLs
 

@@ -5,6 +5,7 @@ import type { Profile, UserRole, QueueType } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { extractWindowNumber } from '../lib/window-utils';
 
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'config'>('users');
@@ -111,13 +112,17 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
   const [editing, setEditing] = useState(false);
   const [role, setRole] = useState<UserRole>(user.role);
   const [queueType, setQueueType] = useState<QueueType | null>(user.operator_queue_type);
-  const [windowLabel, setWindowLabel] = useState(user.window_label || '');
+  // Extract window number from window_label, default to empty
+  const currentWindowNum = extractWindowNumber(user.window_label);
+  const [windowNumber, setWindowNumber] = useState<number | ''>(currentWindowNum || '');
 
   const handleSave = () => {
+    // Format window_label as "Oyna N" for Uzbek display (will be extracted back to number)
+    const windowLabel = windowNumber ? `Oyna ${windowNumber}` : null;
     onUpdate({
       role,
       operator_queue_type: role === 'operator_queue' ? queueType : null,
-      window_label: windowLabel || null,
+      window_label: windowLabel,
     });
     setEditing(false);
   };
@@ -153,15 +158,24 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
       </td>
       <td className="p-2">
         {editing ? (
-          <input
-            type="text"
-            value={windowLabel}
-            onChange={(e) => setWindowLabel(e.target.value)}
-            className="px-2 py-1 border rounded w-32"
-            placeholder="Окно 1"
-          />
+          role === 'operator_queue' ? (
+            <select
+              value={windowNumber}
+              onChange={(e) => setWindowNumber(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              className="px-2 py-1 border rounded w-32"
+            >
+              <option value="">-</option>
+              {[1, 2, 3, 4, 5, 6].map((num) => (
+                <option key={num} value={num}>
+                  Окно {num}
+                </option>
+              ))}
+            </select>
+          ) : (
+            '-'
+          )
         ) : (
-          user.window_label || '-'
+          user.window_label ? (extractWindowNumber(user.window_label) ? `Окно ${extractWindowNumber(user.window_label)}` : user.window_label) : '-'
         )}
       </td>
       <td className="p-2">

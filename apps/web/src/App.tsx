@@ -36,7 +36,7 @@ function AppRoutes() {
           path="/login"
           element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />}
         />
-        <Route path="/queue/print/:ticketId" element={<PrintPage />} />
+        <Route path="/print" element={<PrintPage />} />
 
         {/* Protected routes with layout */}
         <Route

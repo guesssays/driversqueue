@@ -1,49 +1,90 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { DateTime } from 'luxon';
 import type { QueueTicket, SystemConfig } from '../types';
 
 export default function PrintPage() {
-  const { ticketId } = useParams<{ ticketId: string }>();
+  const [searchParams] = useSearchParams();
+  const ticketId = searchParams.get('ticketId');
   const [ticket, setTicket] = useState<QueueTicket | null>(null);
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasPrinted, setHasPrinted] = useState(false);
 
+  // Load ticket data
   useEffect(() => {
-    if (!ticketId) return;
+    if (!ticketId) {
+      setError('Talon ID ko\'rsatilmagan');
+      setLoading(false);
+      return;
+    }
 
     const loadTicket = async () => {
-      const { data, error } = await supabase
-        .from('queue_tickets')
-        .select('*')
-        .eq('id', ticketId)
-        .single();
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const { data, error: fetchError } = await supabase
+          .from('queue_tickets')
+          .select('*')
+          .eq('id', ticketId)
+          .single();
 
-      if (!error && data) {
+        if (fetchError || !data) {
+          setError('Taloni yuklashda xatolik yuz berdi');
+          setLoading(false);
+          return;
+        }
+
         setTicket(data);
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || 'Taloni yuklashda xatolik yuz berdi');
+        setLoading(false);
       }
     };
 
     loadTicket();
   }, [ticketId]);
 
+  // Load config
   useEffect(() => {
     const loadConfig = async () => {
-      const { data } = await supabase
-        .from('system_config')
-        .select('key, value');
+      try {
+        const { data } = await supabase
+          .from('system_config')
+          .select('key, value');
 
-      if (data) {
-        const cfg: any = {};
-        data.forEach(item => {
-          cfg[item.key] = item.value;
-        });
+        if (data) {
+          const cfg: any = {};
+          data.forEach(item => {
+            cfg[item.key] = item.value;
+          });
+          setConfig({
+            logo_url: cfg.logo_url || '',
+            qr_enabled: cfg.qr_enabled ?? true,
+            retention_days: cfg.retention_days || 90,
+            timezone: cfg.timezone || 'Asia/Tashkent',
+          });
+        } else {
+          // Set default config if no data
+          setConfig({
+            logo_url: '',
+            qr_enabled: true,
+            retention_days: 90,
+            timezone: 'Asia/Tashkent',
+          });
+        }
+      } catch (err) {
+        // Set default config on error
         setConfig({
-          logo_url: cfg.logo_url || '',
-          qr_enabled: cfg.qr_enabled ?? true,
-          retention_days: cfg.retention_days || 90,
-          timezone: cfg.timezone || 'Asia/Tashkent',
+          logo_url: '',
+          qr_enabled: true,
+          retention_days: 90,
+          timezone: 'Asia/Tashkent',
         });
       }
     };
@@ -60,17 +101,53 @@ export default function PrintPage() {
     }
   }, [ticket, config]);
 
+  // Auto-print only after ticket data is loaded and rendered
   useEffect(() => {
-    // Auto-print when page loads
-    const timer = setTimeout(() => {
-      window.print();
-    }, 500);
+    // Only print if ticket is loaded, config is loaded, and we haven't printed yet
+    if (ticket && config !== null && !hasPrinted && !loading) {
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(() => {
+        window.print();
+        setHasPrinted(true);
+        
+        // Optionally close window after print (may be blocked by browser)
+        // Uncomment if needed:
+        // setTimeout(() => {
+        //   window.close();
+        // }, 1000);
+      }, 300);
 
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [ticket, config, hasPrinted, loading]);
 
-  if (!ticket) {
-    return <div className="p-8">Загрузка билета...</div>;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-lg text-gray-700">Talon tayyorlanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !ticket) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md p-6">
+          <div className="text-red-600 text-xl mb-4">⚠️ {error || 'Talon topilmadi'}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          >
+            Qayta urinish
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const queueLabel = ticket.queue_type === 'REG' ? 'Регистрация' : 'Технические вопросы';

@@ -51,7 +51,8 @@ export const handler: Handler = async (event) => {
     const ticket = waitingTickets[0];
 
     // Update ticket to CALLED/SERVING
-    const windowLabel = auth.profile.window_label || `Окно ${auth.profile.id.slice(0, 4)}`;
+    // Use window_label from profile as-is (formatting happens on frontend)
+    const windowLabel = auth.profile.window_label || null;
 
     const { data: updatedTicket, error: updateError } = await supabaseAdmin
       .from('queue_tickets')
