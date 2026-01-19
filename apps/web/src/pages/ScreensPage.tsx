@@ -25,7 +25,6 @@ export function ScreensPage() {
   const [screenMode, setScreenMode] = useState<'internal' | 'external'>('internal');
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const cursorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const langIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resolve and update language from config (with auto-refresh every 10 seconds)
@@ -59,40 +58,6 @@ export function ScreensPage() {
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  // Auto-hide cursor for TV mode
-  useEffect(() => {
-    const hideCursor = () => {
-      if (document.body) {
-        document.body.style.cursor = 'none';
-      }
-      if (cursorTimeoutRef.current) {
-        clearTimeout(cursorTimeoutRef.current);
-      }
-      cursorTimeoutRef.current = setTimeout(() => {
-        if (document.body) {
-          document.body.style.cursor = 'auto';
-        }
-      }, 3000);
-    };
-
-    const handleMouseMove = () => {
-      if (document.body) {
-        document.body.style.cursor = 'auto';
-      }
-      hideCursor();
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    hideCursor();
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (cursorTimeoutRef.current) {
-        clearTimeout(cursorTimeoutRef.current);
-      }
-    };
   }, []);
 
   const toggleFullscreen = async () => {
@@ -173,7 +138,6 @@ export function ScreensPage() {
     <div
       ref={containerRef}
       className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-700 text-white p-4 md:p-8"
-      style={{ cursor: 'none' }}
     >
       <div className="max-w-[1920px] mx-auto">
         {/* Header with controls */}
