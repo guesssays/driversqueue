@@ -9,6 +9,7 @@ const configSchema = z.object({
   qr_enabled: z.boolean().optional(),
   retention_days: z.number().int().min(1).optional(),
   timezone: z.string().optional(),
+  screens_lang: z.enum(['ru', 'uzLat', 'uzCyr']).optional(),
 });
 
 export const handler: Handler = async (event) => {
@@ -47,6 +48,7 @@ export const handler: Handler = async (event) => {
         qr_enabled: config.qr_enabled ?? true,
         retention_days: config.retention_days || 90,
         timezone: config.timezone || 'Asia/Tashkent',
+        screens_lang: config.screens_lang || 'uzLat',
       });
     }
 
@@ -79,6 +81,7 @@ export const handler: Handler = async (event) => {
         qr_enabled: config.qr_enabled ?? true,
         retention_days: config.retention_days || 90,
         timezone: config.timezone || 'Asia/Tashkent',
+        screens_lang: config.screens_lang || 'uzLat',
       });
     }
 

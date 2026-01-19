@@ -5,10 +5,8 @@ import { DateTime } from 'luxon';
 import type { QueueTicket } from '../types';
 import { Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { t, type Language } from '../lib/i18n';
-import { getWindowNumber, formatWindowNumber } from '../lib/window-utils';
-
-const LANG: Language = 'uz'; // Default to Uzbek
+import { t, resolveScreensLang, type Language } from '../lib/i18n';
+import { getWindowNumber } from '../lib/window-utils';
 
 // Check URL parameter for voice enable
 function getVoiceEnabledFromURL(): boolean {
@@ -18,6 +16,7 @@ function getVoiceEnabledFromURL(): boolean {
 }
 
 export function ScreensPage() {
+  const [lang, setLang] = useState<Language>('uzLat');
   // Voice disabled by default, enabled via ?voice=1 URL parameter
   const [voiceEnabled, setVoiceEnabled] = useState(getVoiceEnabledFromURL());
   const [lastCalledId, setLastCalledId] = useState<string | null>(null);
@@ -27,6 +26,27 @@ export function ScreensPage() {
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const cursorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const langIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Resolve and update language from config (with auto-refresh every 10 seconds)
+  useEffect(() => {
+    const updateLang = async () => {
+      const resolvedLang = await resolveScreensLang();
+      setLang(resolvedLang);
+    };
+
+    // Initial load
+    updateLang();
+
+    // Auto-refresh every 10 seconds to pick up admin changes
+    langIntervalRef.current = setInterval(updateLang, 10000);
+
+    return () => {
+      if (langIntervalRef.current) {
+        clearInterval(langIntervalRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     synthRef.current = window.speechSynthesis;
@@ -158,7 +178,7 @@ export function ScreensPage() {
       <div className="max-w-[1920px] mx-auto">
         {/* Header with controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-5xl md:text-6xl font-bold">{t('electronicQueue', LANG)}</h1>
+          <h1 className="text-5xl md:text-6xl font-bold">{t('title', lang)}</h1>
           <div className="flex items-center gap-4 flex-wrap">
             {/* Screen mode toggle */}
             <div className="flex gap-2 bg-white/10 rounded-lg p-1">
@@ -168,7 +188,7 @@ export function ScreensPage() {
                   screenMode === 'internal' ? 'bg-white/20 font-semibold' : 'hover:bg-white/10'
                 }`}
               >
-                {t('internalScreen', LANG)}
+                {t('internalScreen', lang)}
               </button>
               <button
                 onClick={() => setScreenMode('external')}
@@ -176,7 +196,7 @@ export function ScreensPage() {
                   screenMode === 'external' ? 'bg-white/20 font-semibold' : 'hover:bg-white/10'
                 }`}
               >
-                {t('externalScreen', LANG)}
+                {t('externalScreen', lang)}
               </button>
             </div>
             
@@ -188,12 +208,12 @@ export function ScreensPage() {
               {voiceEnabled ? (
                 <>
                   <Volume2 className="h-4 w-4 mr-2" />
-                  {t('voiceOn', LANG)}
+                  {t('soundOn', lang)}
                 </>
               ) : (
                 <>
                   <VolumeX className="h-4 w-4 mr-2" />
-                  {t('voiceOff', LANG)}
+                  {t('soundOff', lang)}
                 </>
               )}
             </Button>
@@ -206,12 +226,12 @@ export function ScreensPage() {
               {isFullscreen ? (
                 <>
                   <Minimize className="h-4 w-4 mr-2" />
-                  {t('exitFullscreen', LANG)}
+                  {t('exitFullscreen', lang)}
                 </>
               ) : (
                 <>
                   <Maximize className="h-4 w-4 mr-2" />
-                  {t('fullscreen', LANG)}
+                  {t('fullscreen', lang)}
                 </>
               )}
             </Button>
@@ -221,7 +241,7 @@ export function ScreensPage() {
         {/* Currently Calling Section - Large display */}
         <div className="bg-white/10 backdrop-blur rounded-xl p-6 md:p-8 mb-8 border-2 border-white/20">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-center">
-            {t('currentlyCalling', LANG)}
+            {t('currentlyCalling', lang)}
           </h2>
           
           {activeCalls.length > 0 ? (
@@ -241,9 +261,14 @@ export function ScreensPage() {
                     <div className="text-6xl md:text-8xl font-bold mb-4">
                       {ticket.ticket_number}
                     </div>
-                    <div className="text-3xl md:text-5xl font-bold mb-2">
-                      → {formatWindowNumber(windowNum, LANG)}
-                    </div>
+                    {/* Only show window if ticket is CALLED/SERVING and has window_label */}
+                    {ticket.status === 'CALLED' || ticket.status === 'SERVING' ? (
+                      windowNum ? (
+                        <div className="text-3xl md:text-5xl font-bold mb-2">
+                          → {t('window', lang)} {windowNum}
+                        </div>
+                      ) : null
+                    ) : null}
                     {ticket.called_at && (
                       <div className="text-lg md:text-xl text-gray-700 mt-2">
                         {DateTime.fromISO(ticket.called_at)
@@ -257,7 +282,7 @@ export function ScreensPage() {
             </div>
           ) : (
             <div className="text-center text-4xl md:text-5xl text-gray-300 py-12">
-              {t('noActive', LANG)}
+              {t('noActive', lang)}
             </div>
           )}
         </div>
@@ -267,7 +292,7 @@ export function ScreensPage() {
           {/* Registration Queue */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-6 border-2 border-white/20">
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">
-              {t('registration', LANG)} ({t('waiting', LANG)})
+              {t('reg', lang)} ({t('waiting', lang)})
             </h2>
             {waitingReg.length > 0 ? (
               <div className="space-y-3">
@@ -283,13 +308,13 @@ export function ScreensPage() {
                 </div>
                 {waitingReg.length > 10 && (
                   <div className="text-center text-lg text-gray-300 mt-2">
-                    +{waitingReg.length - 10} {t('waitingFor', LANG)}
+                    +{waitingReg.length - 10} {t('waitingFor', lang)}
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-center text-2xl md:text-3xl text-gray-300 py-8">
-                {t('noWaiting', LANG)}
+                {t('noWaiting', lang)}
               </div>
             )}
           </div>
@@ -297,7 +322,7 @@ export function ScreensPage() {
           {/* Technical Queue */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-6 border-2 border-white/20">
             <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">
-              {t('technicalSupport', LANG)} ({t('waiting', LANG)})
+              {t('tech', lang)} ({t('waiting', lang)})
             </h2>
             {waitingTech.length > 0 ? (
               <div className="space-y-3">
@@ -313,13 +338,13 @@ export function ScreensPage() {
                 </div>
                 {waitingTech.length > 10 && (
                   <div className="text-center text-lg text-gray-300 mt-2">
-                    +{waitingTech.length - 10} {t('waitingFor', LANG)}
+                    +{waitingTech.length - 10} {t('waitingFor', lang)}
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-center text-2xl md:text-3xl text-gray-300 py-8">
-                {t('noWaiting', LANG)}
+                {t('noWaiting', lang)}
               </div>
             )}
           </div>
@@ -329,17 +354,17 @@ export function ScreensPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* Legend */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4 border-2 border-white/20">
-            <h3 className="text-xl md:text-2xl font-bold mb-3">{t('legend', LANG)}</h3>
+            <h3 className="text-xl md:text-2xl font-bold mb-3">{t('legend', lang)}</h3>
             <div className="space-y-2 text-lg">
-              <div><span className="font-bold text-2xl">R</span> - {t('legendReg', LANG)}</div>
-              <div><span className="font-bold text-2xl">T</span> - {t('legendTech', LANG)}</div>
+              <div><span className="font-bold text-2xl">R</span> - {t('legendReg', lang)}</div>
+              <div><span className="font-bold text-2xl">T</span> - {t('legendTech', lang)}</div>
             </div>
           </div>
 
           {/* Instruction */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4 border-2 border-white/20">
-            <h3 className="text-xl md:text-2xl font-bold mb-3">{t('note', LANG)}</h3>
-            <p className="text-lg md:text-xl">{t('instruction', LANG)}</p>
+            <h3 className="text-xl md:text-2xl font-bold mb-3">{t('note', lang)}</h3>
+            <p className="text-lg md:text-xl">{t('instruction', lang)}</p>
           </div>
         </div>
       </div>

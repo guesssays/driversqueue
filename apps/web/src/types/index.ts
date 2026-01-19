@@ -47,6 +47,7 @@ export interface SystemConfig {
   qr_enabled: boolean;
   retention_days: number;
   timezone: string;
+  screens_lang?: 'ru' | 'uzLat' | 'uzCyr';
 }
 
 export interface ScreenState {

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { DateTime } from 'luxon';
 import type { QueueTicket, SystemConfig } from '../types';
+import { t, resolveScreensLang, type Language } from '../lib/i18n';
 
 export default function PrintPage() {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,7 @@ export default function PrintPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasPrinted, setHasPrinted] = useState(false);
+  const [lang, setLang] = useState<Language>('uzLat');
 
   // Load ticket data
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function PrintPage() {
     loadTicket();
   }, [ticketId]);
 
-  // Load config
+  // Load config and resolve language
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -68,6 +70,7 @@ export default function PrintPage() {
             qr_enabled: cfg.qr_enabled ?? true,
             retention_days: cfg.retention_days || 90,
             timezone: cfg.timezone || 'Asia/Tashkent',
+            screens_lang: cfg.screens_lang || 'uzLat',
           });
         } else {
           // Set default config if no data
@@ -76,6 +79,7 @@ export default function PrintPage() {
             qr_enabled: true,
             retention_days: 90,
             timezone: 'Asia/Tashkent',
+            screens_lang: 'uzLat',
           });
         }
       } catch (err) {
@@ -85,11 +89,18 @@ export default function PrintPage() {
           qr_enabled: true,
           retention_days: 90,
           timezone: 'Asia/Tashkent',
+          screens_lang: 'uzLat',
         });
       }
     };
 
+    const loadLang = async () => {
+      const resolvedLang = await resolveScreensLang();
+      setLang(resolvedLang);
+    };
+
     loadConfig();
+    loadLang();
   }, []);
 
   useEffect(() => {
@@ -150,7 +161,7 @@ export default function PrintPage() {
     );
   }
 
-  const queueLabel = ticket.queue_type === 'REG' ? 'Регистрация' : 'Технические вопросы';
+  const queueLabel = ticket.queue_type === 'REG' ? t('reg', lang) : t('tech', lang);
   const createdAt = DateTime.fromISO(ticket.created_at).setZone('Asia/Tashkent');
 
   return (
@@ -187,8 +198,9 @@ export default function PrintPage() {
           </div>
         )}
         
+        {/* No window shown - neutral message only */}
         <div style={{ fontSize: '12px', marginTop: '15px', color: '#666' }}>
-          Ожидайте вызова на экране
+          {t('waitForCall', lang)}
         </div>
       </div>
       

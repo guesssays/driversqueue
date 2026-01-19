@@ -1,6 +1,7 @@
 /**
  * Extract window number (1-6) from window_label
- * Supports formats: "Окно 1", "Oyna 2", "Window 3", "1", "Окно1", etc.
+ * Supports formats: "1", "2", "Окно 1", "Oyna 2", "Window 3", "Окно1", etc.
+ * Profile window_label should be stored as "1".."6" (string numbers)
  */
 export function extractWindowNumber(windowLabel: string | null | undefined): number | null {
   if (!windowLabel) return null;
@@ -15,18 +16,6 @@ export function extractWindowNumber(windowLabel: string | null | undefined): num
   }
   
   return null;
-}
-
-/**
- * Format window number for display (UZ: "Oyna 1", "Oyna 2", etc.)
- */
-export function formatWindowNumber(windowNumber: number | null, lang: 'uz' | 'ru' = 'uz'): string {
-  if (!windowNumber) return lang === 'uz' ? 'Oyna ko\'rsatilmagan' : 'Окно не указано';
-  
-  if (lang === 'uz') {
-    return `Oyna ${windowNumber}`;
-  }
-  return `Окно ${windowNumber}`;
 }
 
 /**

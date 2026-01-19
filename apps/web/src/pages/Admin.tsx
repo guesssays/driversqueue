@@ -117,8 +117,9 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
   const [windowNumber, setWindowNumber] = useState<number | ''>(currentWindowNum || '');
 
   const handleSave = () => {
-    // Format window_label as "Oyna N" for Uzbek display (will be extracted back to number)
-    const windowLabel = windowNumber ? `Oyna ${windowNumber}` : null;
+    // Store window_label as plain number string "1".."6" (not "Окно 1" or "Oyna 1")
+    // This will be extracted and formatted on frontend for display
+    const windowLabel = windowNumber ? String(windowNumber) : null;
     onUpdate({
       role,
       operator_queue_type: role === 'operator_queue' ? queueType : null,
