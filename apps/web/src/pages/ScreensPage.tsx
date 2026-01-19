@@ -246,7 +246,7 @@ export function ScreensPage() {
           
           {activeCalls.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeCalls.map(({ ticket, queueType }) => {
+              {activeCalls.map(({ ticket }) => {
                 const windowNum = getWindowNumber(ticket.window_label);
                 const isNewCall = ticket.called_at && 
                   DateTime.fromISO(ticket.called_at).diffNow('seconds').seconds > -5;
