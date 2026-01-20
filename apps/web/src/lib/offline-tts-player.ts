@@ -5,10 +5,12 @@
  * public/audio/{lang}/
  *   - beep.mp3 (короткий "пик" перед объявлением, опционально)
  *   - number.mp3 (слово "Номер" / "Navbat raqami" / "Навбат рақами")
- *   - window.mp3 (слово "окно" / "oyna" / "ойна", для ru)
+ *   - window.mp3 (слово "окно" / "oyna" / "ойна", для ru и fallback для uzLat/uzCyr)
  *   - window_suffix.mp3 (uzLat: "oynaga", uzCyr: "ойнага", для uzLat/uzCyr)
+ *   - go.mp3 (опционально для uzLat/uzCyr, если отсутствует - пропускается)
  *   - please_go.mp3 (устаревший, больше не используется)
  *   - digits/0.mp3 ... digits/9.mp3 (цифры)
+ *   - ordinals/1.mp3 ... ordinals/6.mp3 (порядковые числительные для uzLat/uzCyr: birinchi, ikkinchi, uchinchi, to'rtinchi, beshinchi, oltinchi)
  *   - letters/A.mp3 ... letters/Z.mp3 (буквы для номеров талонов)
  * 
  * Поддерживаемые языки: ru, uzLat, uzCyr
@@ -243,20 +245,45 @@ export async function speakCall(
     }
   }
   
-  // 4. Номер окна
-  for (const digit of windowNum) {
-    audioPaths.push(`/audio/${lang}/digits/${digit}.mp3`);
-    gaps.push(DEFAULT_GAP_MS);
-  }
-  
-  // 5. Суффикс окна (разный для разных языков)
+  // 4-6. Номер окна и суффикс (разный для разных языков)
   if (lang === 'uzLat' || lang === 'uzCyr') {
-    // uzLat: "oynaga", uzCyr: "ойнага"
-    // Проверяем наличие window_suffix.mp3, если нет - используем fallback
+    // Для узбекских языков используем порядковые числительные
+    const windowNumInt = parseInt(windowNum, 10);
+    if (windowNumInt >= 1 && windowNumInt <= 6) {
+      // Проверяем наличие ordinals/{window}.mp3
+      const ordinalPath = `/audio/${lang}/ordinals/${windowNumInt}.mp3`;
+      let ordinalFound = false;
+      
+      try {
+        const response = await fetch(ordinalPath, { method: 'HEAD' });
+        if (response.ok) {
+          audioPaths.push(ordinalPath);
+          gaps.push(DEFAULT_GAP_MS);
+          ordinalFound = true;
+        }
+      } catch {
+        // Продолжаем с fallback
+      }
+      
+      // Fallback: если ordinals отсутствует, используем digits
+      if (!ordinalFound) {
+        for (const digit of windowNum) {
+          audioPaths.push(`/audio/${lang}/digits/${digit}.mp3`);
+          gaps.push(DEFAULT_GAP_MS);
+        }
+      }
+    } else {
+      // Если номер окна вне диапазона 1-6, используем digits
+      for (const digit of windowNum) {
+        audioPaths.push(`/audio/${lang}/digits/${digit}.mp3`);
+        gaps.push(DEFAULT_GAP_MS);
+      }
+    }
+    
+    // 5. Суффикс окна (window_suffix.mp3 с fallback на window.mp3)
     const windowSuffixPath = `/audio/${lang}/window_suffix.mp3`;
     const windowPath = `/audio/${lang}/window.mp3`;
     
-    // Проверяем существование файла через HEAD запрос
     try {
       const response = await fetch(windowSuffixPath, { method: 'HEAD' });
       if (response.ok) {
@@ -272,10 +299,27 @@ export async function speakCall(
       audioPaths.push(windowPath);
       gaps.push(DEFAULT_GAP_MS);
     }
+    
+    // 6. go.mp3 (опционально, если отсутствует - пропускаем)
+    const goPath = `/audio/${lang}/go.mp3`;
+    try {
+      const response = await fetch(goPath, { method: 'HEAD' });
+      if (response.ok) {
+        audioPaths.push(goPath);
+        gaps.push(DEFAULT_GAP_MS);
+      }
+    } catch {
+      // Пропускаем go.mp3 если отсутствует
+    }
   } else {
-    // ru: "окно"
+    // ru: "окно" + номер окна цифрами
     audioPaths.push(`/audio/${lang}/window.mp3`);
     gaps.push(DEFAULT_GAP_MS);
+    
+    for (const digit of windowNum) {
+      audioPaths.push(`/audio/${lang}/digits/${digit}.mp3`);
+      gaps.push(DEFAULT_GAP_MS);
+    }
   }
   
   // Предзагружаем все файлы перед воспроизведением
