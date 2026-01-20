@@ -88,7 +88,7 @@ export async function preloadAudio(paths: string[]): Promise<void> {
     try {
       const audio = new Audio(path);
       audio.preload = 'auto';
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         audio.addEventListener('canplaythrough', () => resolve(), { once: true });
         audio.addEventListener('error', () => {
           console.warn(`Failed to preload audio: ${path}`);
@@ -104,9 +104,16 @@ export async function preloadAudio(paths: string[]): Promise<void> {
 }
 
 /**
+ * Вспомогательная функция для задержки
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Проиграть один аудио файл (использует кэш если доступен)
  */
-async function playOne(path: string, gapMs: number = DEFAULT_GAP_MS): Promise<void> {
+async function playOne(path: string): Promise<void> {
   return new Promise((resolve) => {
     // Используем кэшированный элемент или создаём новый
     let audio: HTMLAudioElement;
@@ -123,15 +130,14 @@ async function playOne(path: string, gapMs: number = DEFAULT_GAP_MS): Promise<vo
     const handleEnd = () => {
       audio.removeEventListener('ended', handleEnd);
       audio.removeEventListener('error', handleError);
-      // Небольшая пауза после клипа
-      setTimeout(() => resolve(), gapMs);
+      resolve();
     };
     
     const handleError = (err: Event) => {
       console.warn(`Audio file not found or failed to play: ${path}`, err);
       audio.removeEventListener('ended', handleEnd);
       audio.removeEventListener('error', handleError);
-      setTimeout(() => resolve(), gapMs); // Продолжаем даже при ошибке
+      resolve(); // Продолжаем даже при ошибке
     };
     
     audio.addEventListener('ended', handleEnd);
@@ -139,16 +145,9 @@ async function playOne(path: string, gapMs: number = DEFAULT_GAP_MS): Promise<vo
     
     audio.play().catch((err) => {
       console.warn(`Failed to play audio: ${path}`, err);
-      setTimeout(() => resolve(), gapMs); // Продолжаем даже при ошибке
+      resolve(); // Продолжаем даже при ошибке
     });
   });
-}
-
-/**
- * Вспомогательная функция для задержки
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -163,8 +162,12 @@ export async function playSequence(paths: string[], gaps?: number[]): Promise<vo
   playQueue = playQueue.then(async () => {
     for (let i = 0; i < paths.length; i++) {
       const path = paths[i];
-      const gapMs = gaps && gaps[i] !== undefined ? gaps[i] : DEFAULT_GAP_MS;
-      await playOne(path, gapMs);
+      await playOne(path);
+      // Пауза после клипа (кроме последнего)
+      if (i < paths.length - 1) {
+        const gapMs = gaps && gaps[i] !== undefined ? gaps[i] : DEFAULT_GAP_MS;
+        await sleep(gapMs);
+      }
     }
   });
   
