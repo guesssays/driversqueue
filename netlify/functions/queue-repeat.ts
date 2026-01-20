@@ -46,12 +46,12 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Update called_at to trigger announcement
+    // Update repeat_at to trigger announcement (separate from initial called_at)
     const now = new Date().toISOString();
     const { data: updatedTicket, error: updateError } = await supabaseAdmin
       .from('queue_tickets')
       .update({
-        called_at: now,
+        repeat_at: now,
       })
       .eq('id', ticketId)
       .select()

@@ -12,13 +12,13 @@ import {
   setSoundEnabled,
   isSoundEnabled,
   speakCall,
+  checkThrottle,
 } from '../lib/offline-tts-player';
 
 export function ScreensPage() {
   const [lang, setLang] = useState<Language>('uzLat');
   const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
-  const [lastCalledId, setLastCalledId] = useState<string | null>(null);
-  const [lastCalledTime, setLastCalledTime] = useState<number>(0);
+  const [lastEventKey, setLastEventKey] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [screenMode, setScreenMode] = useState<'internal' | 'external'>('internal');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,7 +67,7 @@ export function ScreensPage() {
     refetchInterval: 2000,
   });
 
-  // Offline TTS announcement - only for new calls
+  // Offline TTS announcement - only for new calls and repeats
   useEffect(() => {
     if (!screenState || !soundEnabled) return;
 
@@ -75,30 +75,38 @@ export function ScreensPage() {
     const techCurrent = screenState.tech?.current;
 
     const announce = async (ticket: QueueTicket) => {
-      // Skip if already announced (same ID)
-      if (ticket.id === lastCalledId) return;
-      
       // Only announce CALLED/SERVING tickets with window_label
       if (!['CALLED', 'SERVING'].includes(ticket.status) || !ticket.window_label) return;
       
-      // Skip if called_at is too old (more than 10 seconds ago) - likely not a new call
-      if (ticket.called_at) {
-        const calledTime = DateTime.fromISO(ticket.called_at).toMillis();
+      // Создаём уникальный ключ события: ticket.id + called_at + repeat_at
+      // Это позволяет отслеживать как новые вызовы, так и повторы отдельно
+      const eventKey = `${ticket.id}:${ticket.called_at ?? ''}:${ticket.repeat_at ?? ''}`;
+      
+      // Пропускаем если это тот же eventKey (уже озвучено)
+      if (eventKey === lastEventKey) return;
+      
+      // Проверяем throttle для анти-спама (не озвучивать один ticket.id чаще чем раз в 2 секунды)
+      const throttleKey = `${ticket.id}:${ticket.repeat_at ?? ticket.called_at ?? ''}`;
+      if (!checkThrottle(throttleKey)) return;
+      
+      // Проверяем возраст события (не старше 10 секунд)
+      const eventTime = ticket.repeat_at 
+        ? DateTime.fromISO(ticket.repeat_at).toMillis()
+        : ticket.called_at 
+        ? DateTime.fromISO(ticket.called_at).toMillis()
+        : null;
+      
+      if (eventTime) {
         const now = DateTime.now().toMillis();
-        const ageSeconds = (now - calledTime) / 1000;
+        const ageSeconds = (now - eventTime) / 1000;
         
-        // Only announce if called within last 10 seconds (new call)
+        // Только озвучиваем если событие произошло в последние 10 секунд
         if (ageSeconds > 10) return;
-        
-        // Also check if we already announced something very recently (within 2 seconds)
-        // to prevent duplicate announcements during rapid polling
-        if (lastCalledTime > 0 && (now - lastCalledTime) < 2000) return;
       }
       
-      setLastCalledId(ticket.id);
-      setLastCalledTime(DateTime.now().toMillis());
+      setLastEventKey(eventKey);
       
-      // Play announcement
+      // Play announcement (добавится в очередь автоматически)
       await speakCall(ticket.ticket_number, ticket.window_label, lang);
     };
 
@@ -108,7 +116,7 @@ export function ScreensPage() {
     if (techCurrent) {
       announce(techCurrent);
     }
-  }, [screenState, soundEnabled, lastCalledId, lastCalledTime, lang]);
+  }, [screenState, soundEnabled, lastEventKey, lang]);
 
   // Get active calls (CALLED/SERVING)
   const activeCalls: Array<{ ticket: QueueTicket; queueType: 'REG' | 'TECH' }> = [];

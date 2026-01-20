@@ -21,6 +21,7 @@ export interface QueueTicket {
   window_label: string | null;
   created_at: string;
   called_at: string | null;
+  repeat_at: string | null;
   started_at: string | null;
   finished_at: string | null;
   ticket_date: string;
