@@ -3,27 +3,24 @@ import { useQuery } from '@tanstack/react-query';
 import { queueApi } from '../lib/api';
 import { DateTime } from 'luxon';
 import type { QueueTicket } from '../types';
-import { Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
+import { Volume2, VolumeX, Maximize, Minimize, Monitor, Tv } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { t, resolveScreensLang, type Language } from '../lib/i18n';
 import { getWindowNumber } from '../lib/window-utils';
-
-// Check URL parameter for voice enable
-function getVoiceEnabledFromURL(): boolean {
-  if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.get('voice') === '1';
-}
+import {
+  initAudioUnlock,
+  setSoundEnabled,
+  isSoundEnabled,
+  speakCall,
+} from '../lib/offline-tts-player';
 
 export function ScreensPage() {
   const [lang, setLang] = useState<Language>('uzLat');
-  // Voice disabled by default, enabled via ?voice=1 URL parameter
-  const [voiceEnabled, setVoiceEnabled] = useState(getVoiceEnabledFromURL());
+  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
   const [lastCalledId, setLastCalledId] = useState<string | null>(null);
   const [lastCalledTime, setLastCalledTime] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [screenMode, setScreenMode] = useState<'internal' | 'external'>('internal');
-  const synthRef = useRef<SpeechSynthesis | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const langIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -45,10 +42,6 @@ export function ScreensPage() {
         clearInterval(langIntervalRef.current);
       }
     };
-  }, []);
-
-  useEffect(() => {
-    synthRef.current = window.speechSynthesis;
   }, []);
 
   // Fullscreen handling
@@ -74,17 +67,19 @@ export function ScreensPage() {
     refetchInterval: 2000,
   });
 
-  // Voice announcement in Uzbek
-  // Only announces new calls (by ID and time) to prevent spam during polling
+  // Offline TTS announcement - only for new calls
   useEffect(() => {
-    if (!screenState || !voiceEnabled || !synthRef.current) return;
+    if (!screenState || !soundEnabled) return;
 
     const regCurrent = screenState.reg?.current;
     const techCurrent = screenState.tech?.current;
 
-    const announce = (ticket: QueueTicket) => {
+    const announce = async (ticket: QueueTicket) => {
       // Skip if already announced (same ID)
       if (ticket.id === lastCalledId) return;
+      
+      // Only announce CALLED/SERVING tickets with window_label
+      if (!['CALLED', 'SERVING'].includes(ticket.status) || !ticket.window_label) return;
       
       // Skip if called_at is too old (more than 10 seconds ago) - likely not a new call
       if (ticket.called_at) {
@@ -103,23 +98,17 @@ export function ScreensPage() {
       setLastCalledId(ticket.id);
       setLastCalledTime(DateTime.now().toMillis());
       
-      const windowNum = getWindowNumber(ticket.window_label);
-      const windowText = windowNum ? `Oyna ${windowNum}` : 'oynaga';
-      const message = `${ticket.ticket_number}, ${windowText}ga boring`;
-      
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'uz-UZ';
-      utterance.rate = 0.9;
-      synthRef.current?.speak(utterance);
+      // Play announcement
+      await speakCall(ticket.ticket_number, ticket.window_label, lang);
     };
 
-    if (regCurrent && regCurrent.called_at) {
+    if (regCurrent) {
       announce(regCurrent);
     }
-    if (techCurrent && techCurrent.called_at) {
+    if (techCurrent) {
       announce(techCurrent);
     }
-  }, [screenState, voiceEnabled, lastCalledId, lastCalledTime]);
+  }, [screenState, soundEnabled, lastCalledId, lastCalledTime, lang]);
 
   // Get active calls (CALLED/SERVING)
   const activeCalls: Array<{ ticket: QueueTicket; queueType: 'REG' | 'TECH' }> = [];
@@ -148,55 +137,58 @@ export function ScreensPage() {
             <div className="flex gap-2 bg-white/10 rounded-lg p-1">
               <button
                 onClick={() => setScreenMode('internal')}
-                className={`px-4 py-2 rounded transition ${
-                  screenMode === 'internal' ? 'bg-white/20 font-semibold' : 'hover:bg-white/10'
+                title={t('internalScreen', lang)}
+                aria-label={t('internalScreen', lang)}
+                className={`p-2 rounded transition ${
+                  screenMode === 'internal' ? 'bg-white/20' : 'hover:bg-white/10'
                 }`}
               >
-                {t('internalScreen', lang)}
+                <Monitor className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setScreenMode('external')}
-                className={`px-4 py-2 rounded transition ${
-                  screenMode === 'external' ? 'bg-white/20 font-semibold' : 'hover:bg-white/10'
+                title={t('externalScreen', lang)}
+                aria-label={t('externalScreen', lang)}
+                className={`p-2 rounded transition ${
+                  screenMode === 'external' ? 'bg-white/20' : 'hover:bg-white/10'
                 }`}
               >
-                {t('externalScreen', lang)}
+                <Tv className="h-5 w-5" />
               </button>
             </div>
             
             <Button
               variant="ghost"
-              onClick={() => setVoiceEnabled(!voiceEnabled)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              onClick={async () => {
+                if (!soundEnabled) {
+                  await initAudioUnlock();
+                }
+                const newState = !soundEnabled;
+                setSoundEnabled(newState);
+                setSoundEnabledState(newState);
+              }}
+              title={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
+              aria-label={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20 p-2"
             >
-              {voiceEnabled ? (
-                <>
-                  <Volume2 className="h-4 w-4 mr-2" />
-                  {t('soundOn', lang)}
-                </>
+              {soundEnabled ? (
+                <Volume2 className="h-5 w-5" />
               ) : (
-                <>
-                  <VolumeX className="h-4 w-4 mr-2" />
-                  {t('soundOff', lang)}
-                </>
+                <VolumeX className="h-5 w-5" />
               )}
             </Button>
             
             <Button
               variant="ghost"
               onClick={toggleFullscreen}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              title={isFullscreen ? t('exitFullscreen', lang) : t('fullscreen', lang)}
+              aria-label={isFullscreen ? t('exitFullscreen', lang) : t('fullscreen', lang)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20 p-2"
             >
               {isFullscreen ? (
-                <>
-                  <Minimize className="h-4 w-4 mr-2" />
-                  {t('exitFullscreen', lang)}
-                </>
+                <Minimize className="h-5 w-5" />
               ) : (
-                <>
-                  <Maximize className="h-4 w-4 mr-2" />
-                  {t('fullscreen', lang)}
-                </>
+                <Maximize className="h-5 w-5" />
               )}
             </Button>
           </div>
