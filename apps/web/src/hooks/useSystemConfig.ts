@@ -8,7 +8,7 @@ import type { SystemConfig } from '../types';
  * Admin-only write operations should use adminApi.updateConfig() instead
  */
 export function useSystemConfig() {
-  return useQuery({
+  return useQuery<SystemConfig>({
     queryKey: ['system-config'],
     queryFn: () => publicConfigApi.getConfig(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
