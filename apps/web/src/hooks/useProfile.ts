@@ -9,7 +9,7 @@ export function useProfile() {
     return roles.includes(profile.role);
   };
 
-  const canAccessQueue = (queueType: 'REG' | 'TECH'): boolean => {
+  const canAccessQueue = (_queueType: 'REG' | 'TECH'): boolean => {
     if (!profile) return false;
     if (profile.role === 'admin') return true;
     if (profile.role === 'operator_queue') {

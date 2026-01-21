@@ -21,7 +21,6 @@ export function OperatorPage() {
   };
   
   const [queueType, setQueueType] = useState<QueueType>(getInitialQueueType());
-  const queueLabel = queueType === 'REG' ? 'Регистрация' : 'Технические вопросы';
   
   // Save queue type to localStorage when it changes
   useEffect(() => {

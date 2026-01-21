@@ -67,7 +67,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: SidebarProps) {
-  const { profile, hasRole } = useProfile();
+  const { hasRole } = useProfile();
   const location = useLocation();
 
   // Filter items based on role

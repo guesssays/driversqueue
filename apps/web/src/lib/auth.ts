@@ -30,7 +30,7 @@ export function hasRole(profile: Profile | null, roles: UserRole[]): boolean {
   return roles.includes(profile.role);
 }
 
-export function canAccessQueue(profile: Profile | null, queueType: 'REG' | 'TECH'): boolean {
+export function canAccessQueue(profile: Profile | null, _queueType: 'REG' | 'TECH'): boolean {
   if (!profile) return false;
   if (profile.role === 'admin') return true;
   if (profile.role === 'operator_queue') {
