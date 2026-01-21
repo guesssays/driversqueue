@@ -111,6 +111,13 @@ export const reportApi = {
   },
 };
 
+// Public config (read-only for all authenticated users)
+export const publicConfigApi = {
+  getConfig: async () => {
+    return apiCall<SystemConfig>('/public-config');
+  },
+};
+
 // Admin operations
 export const adminApi = {
   getUsers: async () => {

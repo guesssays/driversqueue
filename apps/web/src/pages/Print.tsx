@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { DateTime } from 'luxon';
-import type { QueueTicket, SystemConfig } from '../types';
+import type { QueueTicket } from '../types';
 import { t, resolveScreensLang, type Language } from '../lib/i18n';
+import { useSystemConfig } from '../hooks/useSystemConfig';
 
 export default function PrintPage() {
   const [searchParams] = useSearchParams();
   const ticketId = searchParams.get('ticketId');
   const [ticket, setTicket] = useState<QueueTicket | null>(null);
-  const [config, setConfig] = useState<SystemConfig | null>(null);
+  const { data: config, isLoading: configLoading } = useSystemConfig();
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,54 +53,12 @@ export default function PrintPage() {
     loadTicket();
   }, [ticketId]);
 
-  // Load config and resolve language
+  // Resolve language
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const { data } = await supabase
-          .from('system_config')
-          .select('key, value');
-
-        if (data) {
-          const cfg: any = {};
-          data.forEach(item => {
-            cfg[item.key] = item.value;
-          });
-          setConfig({
-            logo_url: cfg.logo_url || '',
-            qr_enabled: cfg.qr_enabled ?? true,
-            retention_days: cfg.retention_days || 90,
-            timezone: cfg.timezone || 'Asia/Tashkent',
-            screens_lang: cfg.screens_lang || 'uzLat',
-          });
-        } else {
-          // Set default config if no data
-          setConfig({
-            logo_url: '',
-            qr_enabled: true,
-            retention_days: 90,
-            timezone: 'Asia/Tashkent',
-            screens_lang: 'uzLat',
-          });
-        }
-      } catch (err) {
-        // Set default config on error
-        setConfig({
-          logo_url: '',
-          qr_enabled: true,
-          retention_days: 90,
-          timezone: 'Asia/Tashkent',
-          screens_lang: 'uzLat',
-        });
-      }
-    };
-
     const loadLang = async () => {
       const resolvedLang = await resolveScreensLang();
       setLang(resolvedLang);
     };
-
-    loadConfig();
     loadLang();
   }, []);
 
@@ -115,7 +74,7 @@ export default function PrintPage() {
   // Auto-print only after ticket data is loaded and rendered
   useEffect(() => {
     // Only print if ticket is loaded, config is loaded, and we haven't printed yet
-    if (ticket && config !== null && !hasPrinted && !loading) {
+    if (ticket && config && !hasPrinted && !loading && !configLoading) {
       // Small delay to ensure DOM is fully rendered
       const timer = setTimeout(() => {
         window.print();
@@ -130,10 +89,10 @@ export default function PrintPage() {
 
       return () => clearTimeout(timer);
     }
-  }, [ticket, config, hasPrinted, loading]);
+  }, [ticket, config, hasPrinted, loading, configLoading]);
 
   // Loading state
-  if (loading) {
+  if (loading || configLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
