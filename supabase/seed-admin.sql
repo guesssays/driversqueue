@@ -19,11 +19,12 @@
 -- 2. Insert profile with appropriate role:
 --    - 'admin' - Full access
 --    - 'reception_security' - Can issue tickets
---    - 'operator_queue' - Can operate assigned queue (also set operator_queue_type: 'REG' or 'TECH')
+--    - 'operator_queue' - Can operate both REG and TECH queues (operator_queue_type should be NULL)
 
 -- Example for operator:
--- INSERT INTO profiles (id, role, operator_queue_type, window_label)
--- VALUES ('USER_UUID', 'operator_queue', 'REG', 'Окно 1');
+-- INSERT INTO profiles (id, role, window_label)
+-- VALUES ('USER_UUID', 'operator_queue', '1');
+-- Note: window_label should be a plain number string '1'..'6', not 'Окно 1'
 
 -- Example for reception:
 -- INSERT INTO profiles (id, role)

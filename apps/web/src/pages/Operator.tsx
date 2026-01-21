@@ -11,24 +11,26 @@ interface OperatorPageProps {
 }
 
 export default function OperatorPage({ profile }: OperatorPageProps) {
-  const [queueType, setQueueType] = useState<QueueType | null>(null);
+  // Get last used queue type from localStorage, default to REG
+  const getInitialQueueType = (): QueueType => {
+    if (typeof window === 'undefined') return 'REG';
+    const stored = localStorage.getItem('operator_last_queue_type');
+    return (stored === 'TECH' || stored === 'REG') ? stored : 'REG';
+  };
+  
+  const [queueType, setQueueType] = useState<QueueType>(getInitialQueueType());
   const navigate = useNavigate();
 
+  // Save queue type to localStorage when it changes
   useEffect(() => {
-    if (profile) {
-      if (profile.role === 'admin') {
-        // Admin can choose queue
-        setQueueType('REG'); // Default
-      } else if (profile.operator_queue_type) {
-        setQueueType(profile.operator_queue_type);
-      }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('operator_last_queue_type', queueType);
     }
-  }, [profile]);
+  }, [queueType]);
 
   const { data: screenState, refetch } = useQuery({
     queryKey: ['screen-state', queueType],
     queryFn: () => queueApi.getScreenState(),
-    enabled: !!queueType,
     refetchInterval: 2000,
   });
 
@@ -78,38 +80,12 @@ export default function OperatorPage({ profile }: OperatorPageProps) {
     navigate('/login');
   };
 
-  if (!queueType) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div>Загрузка...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">
-            Очередь: {queueType === 'REG' ? 'Регистрация' : 'Технические вопросы'}
-          </h1>
+          <h1 className="text-3xl font-bold">Оператор</h1>
           <div className="flex gap-2">
-            {profile?.role === 'admin' && (
-              <>
-                <button
-                  onClick={() => setQueueType('REG')}
-                  className={`px-4 py-2 rounded ${queueType === 'REG' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-                >
-                  Регистрация
-                </button>
-                <button
-                  onClick={() => setQueueType('TECH')}
-                  className={`px-4 py-2 rounded ${queueType === 'TECH' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-                >
-                  Технические вопросы
-                </button>
-              </>
-            )}
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
@@ -117,6 +93,34 @@ export default function OperatorPage({ profile }: OperatorPageProps) {
               Выход
             </button>
           </div>
+        </div>
+        
+        {profile?.window_label && (
+          <p className="text-gray-600 mb-4">Окно: {profile.window_label}</p>
+        )}
+        
+        {/* Tab switcher for REG/TECH - all operators can use both */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setQueueType('REG')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              queueType === 'REG'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Регистрация
+          </button>
+          <button
+            onClick={() => setQueueType('TECH')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              queueType === 'TECH'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Технические вопросы
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

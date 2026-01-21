@@ -39,12 +39,7 @@ export const handler: Handler = async (event) => {
       return errorResponse('Ticket not found', 404);
     }
 
-    // Check permissions
-    if (auth.profile.role !== 'admin') {
-      if (auth.profile.operator_queue_type !== ticket.queue_type) {
-        return errorResponse('Insufficient permissions', 403);
-      }
-    }
+    // Operators can repeat calls for tickets from any queue type
 
     // Update repeat_at to trigger announcement (separate from initial called_at)
     const now = new Date().toISOString();

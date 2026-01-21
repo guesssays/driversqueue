@@ -9,7 +9,8 @@
  *   - window_suffix.mp3 (uzLat: "oynaga", uzCyr: "ойнага", для uzLat/uzCyr)
  *   - go.mp3 (опционально для uzLat/uzCyr, если отсутствует - пропускается)
  *   - please_go.mp3 (устаревший, больше не используется)
- *   - digits/0.mp3 ... digits/9.mp3 (цифры)
+ *   - digits/0.mp3 ... digits/9.mp3 (цифры, используется как fallback)
+ *   - numbers/1.mp3 ... numbers/999.mp3 (числа 1-999, озвучка без ведущих нулей)
  *   - ordinals/1.mp3 ... ordinals/6.mp3 (порядковые числительные для uzLat/uzCyr: birinchi, ikkinchi, uchinchi, to'rtinchi, beshinchi, oltinchi)
  *   - letters/A.mp3 ... letters/Z.mp3 (буквы для номеров талонов)
  * 
@@ -26,6 +27,30 @@ const STORAGE_KEY = 'soundEnabled';
 
 // Кэш предзагруженных аудио элементов
 const audioCache = new Map<string, HTMLAudioElement>();
+
+// Кэш "существует ли файл numbers/{n}.mp3" (чтобы не делать HEAD/GET каждый раз)
+const numberAudioExistsCache = new Map<string, boolean>();
+
+async function numberAudioExists(lang: Language, n: number): Promise<boolean> {
+  const key = `${lang}:${n}`;
+
+  const cached = numberAudioExistsCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const url = `/audio/${lang}/numbers/${n}.mp3`;
+
+  try {
+    // HEAD обычно достаточно и быстро
+    const res = await fetch(url, { method: 'HEAD' });
+    const ok = res.ok;
+    numberAudioExistsCache.set(key, ok);
+    return ok;
+  } catch {
+    numberAudioExistsCache.set(key, false);
+    return false;
+  }
+}
+
 
 // Паузы между клипами (в миллисекундах)
 const DEFAULT_GAP_MS = 60;
@@ -177,7 +202,38 @@ export async function playSequence(paths: string[], gaps?: number[]): Promise<vo
 }
 
 /**
- * Разбить номер талона на токены (буквы и цифры)
+ * Нормализовать номер талона: извлечь префикс (букву) и число без ведущих нулей
+ * Примеры:
+ * - "T-001" -> { prefix: "T", number: 1 }
+ * - "R-005" -> { prefix: "R", number: 5 }
+ * - "T228" -> { prefix: "T", number: 228 }
+ * - "T-000" -> null (используется fallback)
+
+ * 
+ * Если парсинг не удался, возвращает null (fallback на старый алгоритм)
+ */
+function normalizeTicketNumber(ticketNo: string): { prefix: string; number: number } | null {
+  if (!ticketNo) return null;
+
+  const cleaned = ticketNo.trim().toUpperCase();
+
+  // Форматы: T001, T-001, T 001, R010 и т.п.
+  // Берём 1 букву + цифры (1..3), ведущие нули убираем через parseInt
+  const match = cleaned.match(/^([A-ZА-Я])[\s\-]*0*([0-9]{1,3})$/);
+  if (!match) return null;
+
+  const prefix = match[1];
+  const num = parseInt(match[2], 10);
+
+  // 0 — не озвучиваем "числом", уйдёт в fallback
+  if (!Number.isFinite(num) || num <= 0 || num > 999) return null;
+
+  return { prefix, number: num };
+}
+
+
+/**
+ * Разбить номер талона на токены (буквы и цифры) - fallback для старого алгоритма
  * Примеры:
  * - "T-002" -> ["T", "0", "0", "2"]
  * - "R-001" -> ["R", "0", "0", "1"]
@@ -222,7 +278,6 @@ export async function speakCall(
   const windowNum = windowLabel.match(/\d+/)?.[0];
   if (!windowNum) return;
   
-  const tokens = tokenizeTicket(ticketNo);
   const audioPaths: string[] = [];
   const gaps: number[] = [];
   
@@ -234,14 +289,38 @@ export async function speakCall(
   audioPaths.push(`/audio/${lang}/number.mp3`);
   gaps.push(DEFAULT_GAP_MS);
   
-  // 3. Токены номера талона
-  for (const token of tokens) {
-    if (token >= 'A' && token <= 'Z') {
-      audioPaths.push(`/audio/${lang}/letters/${token}.mp3`);
-      gaps.push(DEFAULT_GAP_MS);
-    } else if (token >= '0' && token <= '9') {
-      audioPaths.push(`/audio/${lang}/digits/${token}.mp3`);
-      gaps.push(DEFAULT_GAP_MS);
+  // 3. Номер талона: пытаемся использовать новый формат (префикс + число)
+  const normalized = normalizeTicketNumber(ticketNo);
+  let useNormalizedFormat = false;
+  
+if (normalized) {
+  // Проверяем наличие файла numbers/{n}.mp3 (через кэш)
+  const numberPath = `/audio/${lang}/numbers/${normalized.number}.mp3`;
+
+  if (await numberAudioExists(lang, normalized.number)) {
+    // Новый формат: буква + число одним файлом
+    audioPaths.push(`/audio/${lang}/letters/${normalized.prefix}.mp3`);
+    gaps.push(DEFAULT_GAP_MS);
+
+    audioPaths.push(numberPath);
+    gaps.push(DEFAULT_GAP_MS);
+
+    useNormalizedFormat = true;
+  }
+}
+
+  
+  // Fallback: если новый формат не доступен, используем старый (цифра за цифрой)
+  if (!useNormalizedFormat) {
+    const tokens = tokenizeTicket(ticketNo);
+    for (const token of tokens) {
+      if (token >= 'A' && token <= 'Z') {
+        audioPaths.push(`/audio/${lang}/letters/${token}.mp3`);
+        gaps.push(DEFAULT_GAP_MS);
+      } else if (token >= '0' && token <= '9') {
+        audioPaths.push(`/audio/${lang}/digits/${token}.mp3`);
+        gaps.push(DEFAULT_GAP_MS);
+      }
     }
   }
   

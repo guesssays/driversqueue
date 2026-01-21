@@ -26,11 +26,9 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const { queueType } = callNextSchema.parse(body);
 
-    // Check if user is admin or operator for this queue
-    if (auth.profile.role !== 'admin') {
-      if (auth.profile.role !== 'operator_queue' || auth.profile.operator_queue_type !== queueType) {
-        return errorResponse('Insufficient permissions', 403);
-      }
+    // Check if user is admin or operator (operators can serve both queues)
+    if (auth.profile.role !== 'admin' && auth.profile.role !== 'operator_queue') {
+      return errorResponse('Insufficient permissions', 403);
     }
 
     const now = new Date().toISOString();

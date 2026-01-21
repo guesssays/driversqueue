@@ -73,19 +73,8 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
   // Filter items based on role
   const filteredItems = menuItems.filter((item) => hasRole(item.roles));
 
-  // Filter operator items based on assigned queue
-  const visibleItems = filteredItems.filter((item) => {
-    if (item.path.startsWith('/operator/')) {
-      if (profile?.role === 'operator_queue') {
-        // Only show the queue type assigned to this operator
-        const queueType = item.path.includes('/reg') ? 'REG' : 'TECH';
-        return profile.operator_queue_type === queueType;
-      }
-      // Admin can see both
-      return true;
-    }
-    return true;
-  });
+  // All operators can access both queues now
+  const visibleItems = filteredItems;
 
   const sidebarContent = (
     <div className="flex flex-col h-full">

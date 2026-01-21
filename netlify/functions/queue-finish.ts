@@ -39,12 +39,7 @@ export const handler: Handler = async (event) => {
       return errorResponse('Ticket not found', 404);
     }
 
-    // Check permissions
-    if (auth.profile.role !== 'admin') {
-      if (auth.profile.operator_queue_type !== ticket.queue_type) {
-        return errorResponse('Insufficient permissions', 403);
-      }
-    }
+    // Operators can finish tickets from any queue type
 
     const now = new Date().toISOString();
     const { data: updatedTicket, error: updateError } = await supabaseAdmin

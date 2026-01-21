@@ -111,7 +111,6 @@ export function AdminPage() {
 function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partial<Profile>) => void }) {
   const [editing, setEditing] = useState(false);
   const [role, setRole] = useState<UserRole>(user.role);
-  const [queueType, setQueueType] = useState<QueueType | null>(user.operator_queue_type);
   // Extract window number from window_label, default to empty
   const currentWindowNum = extractWindowNumber(user.window_label);
   const [windowNumber, setWindowNumber] = useState<number | ''>(currentWindowNum || '');
@@ -122,7 +121,7 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
     const windowLabel = windowNumber ? String(windowNumber) : null;
     onUpdate({
       role,
-      operator_queue_type: role === 'operator_queue' ? queueType : null,
+      operator_queue_type: null, // Operators can now serve both queues, so operator_queue_type is set to NULL
       window_label: windowLabel,
     });
     setEditing(false);
@@ -143,19 +142,8 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
         )}
       </td>
       <td className="p-2">
-        {editing ? (
-          role === 'operator_queue' ? (
-            <select value={queueType || ''} onChange={(e) => setQueueType(e.target.value as QueueType || null)} className="px-2 py-1 border rounded">
-              <option value="">-</option>
-              <option value="REG">REG</option>
-              <option value="TECH">TECH</option>
-            </select>
-          ) : (
-            '-'
-          )
-        ) : (
-          user.operator_queue_type || '-'
-        )}
+        {/* operator_queue_type is no longer used - operators can serve both queues */}
+        <span className="text-gray-400">-</span>
       </td>
       <td className="p-2">
         {editing ? (

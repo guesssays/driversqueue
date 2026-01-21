@@ -34,7 +34,8 @@ export function canAccessQueue(profile: Profile | null, queueType: 'REG' | 'TECH
   if (!profile) return false;
   if (profile.role === 'admin') return true;
   if (profile.role === 'operator_queue') {
-    return profile.operator_queue_type === queueType;
+    // Operators can access both queues
+    return true;
   }
   return false;
 }
