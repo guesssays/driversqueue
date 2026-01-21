@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'react-router-dom';
 import { queueApi } from '../lib/api';
 import { useProfile } from '../hooks/useProfile';
 import { Card } from '../components/ui/Card';
@@ -12,22 +12,10 @@ import { Repeat, CheckCircle, XCircle, Phone } from 'lucide-react';
 
 export function OperatorPage() {
   const { profile } = useProfile();
+  const { queueType: queueTypeParam } = useParams<{ queueType: 'reg' | 'tech' }>();
   
-  // Get last used queue type from localStorage, default to REG
-  const getInitialQueueType = (): QueueType => {
-    if (typeof window === 'undefined') return 'REG';
-    const stored = localStorage.getItem('operator_last_queue_type');
-    return (stored === 'TECH' || stored === 'REG') ? stored : 'REG';
-  };
-  
-  const [queueType, setQueueType] = useState<QueueType>(getInitialQueueType());
-  
-  // Save queue type to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('operator_last_queue_type', queueType);
-    }
-  }, [queueType]);
+  // Read queueType from route parameter (sidebar is the source of truth)
+  const queueType: QueueType = queueTypeParam === 'tech' ? 'TECH' : 'REG';
 
   const { data: screenState, refetch, isLoading } = useQuery({
     queryKey: ['screen-state', queueType],
@@ -90,30 +78,6 @@ export function OperatorPage() {
         {profile?.window_label && (
           <p className="text-gray-600 mb-4">Окно: {profile.window_label}</p>
         )}
-        
-        {/* Tab switcher for REG/TECH */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setQueueType('REG')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              queueType === 'REG'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Регистрация
-          </button>
-          <button
-            onClick={() => setQueueType('TECH')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              queueType === 'TECH'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Технические вопросы
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
