@@ -101,7 +101,7 @@ export function ScreensPage() {
         const ageSeconds = (now - eventTime) / 1000;
         
         // Только озвучиваем если событие произошло в последние 10 секунд
-        if (ageSeconds > 10) return;
+        if (ageSeconds > 60) return;
       }
       
       setLastEventKey(eventKey);
@@ -165,26 +165,27 @@ export function ScreensPage() {
               </button>
             </div>
             
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                if (!soundEnabled) {
-                  await initAudioUnlock();
-                }
-                const newState = !soundEnabled;
-                setSoundEnabled(newState);
-                setSoundEnabledState(newState);
-              }}
-              title={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
-              aria-label={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 p-2"
-            >
-              {soundEnabled ? (
-                <Volume2 className="h-5 w-5" />
-              ) : (
-                <VolumeX className="h-5 w-5" />
-              )}
-            </Button>
+<Button
+  variant="ghost"
+  onClick={async () => {
+    // ВСЕГДА пытаемся разлочить аудио (Chrome autoplay fix)
+    await initAudioUnlock();
+
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    setSoundEnabledState(newState);
+  }}
+  title={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
+  aria-label={soundEnabled ? t('soundOn', lang) : t('soundOff', lang)}
+  className="bg-white/10 hover:bg-white/20 text-white border-white/20 p-2"
+>
+  {soundEnabled ? (
+    <Volume2 className="h-5 w-5" />
+  ) : (
+    <VolumeX className="h-5 w-5" />
+  )}
+</Button>
+
             
             <Button
               variant="ghost"
