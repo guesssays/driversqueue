@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        // Always load fresh profile on app start (not cached) to ensure operators see both queues
         loadProfile();
       } else {
         setLoading(false);
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        // Always load fresh profile on auth change (not cached)
         loadProfile();
       } else {
         setProfile(null);

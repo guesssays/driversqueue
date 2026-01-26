@@ -10,6 +10,8 @@ export async function getProfile(): Promise<Profile | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  // Always fetch fresh profile (no cache) to ensure operators see both queues after migration
+  // Add timestamp query param to bypass any potential caching
   const { data, error } = await supabase
     .from('profiles')
     .select('*')

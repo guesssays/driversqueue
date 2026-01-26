@@ -60,6 +60,16 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        
+        {/* Redirect /operator to /operator/reg for operators */}
+        <Route
+          path="/operator"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'operator_queue']}>
+              <Navigate to="/operator/reg" replace />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/issue"

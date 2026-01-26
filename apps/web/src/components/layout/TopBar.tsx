@@ -43,6 +43,12 @@ export function TopBar({ onMenuClick, showMenuButton = false }: TopBarProps) {
             <span className="text-xs text-gray-500">{getRoleLabel(profile.role)}</span>
           </div>
         )}
+        {/* Build version for cache debugging (only in development or if env var is set) */}
+        {(import.meta.env.DEV || import.meta.env.VITE_SHOW_VERSION) && (
+          <span className="text-xs text-gray-400 hidden lg:inline" title="Build version">
+            v{import.meta.env.VITE_APP_VERSION || 'dev'}
+          </span>
+        )}
         <Button variant="ghost" size="sm" onClick={signOut}>
           <LogOut className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">Выйти</span>

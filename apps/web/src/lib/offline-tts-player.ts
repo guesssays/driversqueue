@@ -22,6 +22,7 @@ import type { Language } from './i18n';
 let soundEnabled = false;
 let audioUnlocked = false;
 let playQueue: Promise<void> = Promise.resolve();
+let currentAudioElements: HTMLAudioElement[] = []; // Track currently playing audio
 
 const STORAGE_KEY = 'soundEnabled';
 
@@ -30,6 +31,9 @@ const audioCache = new Map<string, HTMLAudioElement>();
 
 // Кэш "существует ли файл numbers/{n}.mp3" (чтобы не делать HEAD/GET каждый раз)
 const numberAudioExistsCache = new Map<string, boolean>();
+
+// Кэш для HEAD проверок существования файлов (ordinals, window_suffix, go, etc.)
+const fileExistsCache = new Map<string, boolean>();
 
 async function numberAudioExists(lang: Language, n: number): Promise<boolean> {
   const key = `${lang}:${n}`;
@@ -47,6 +51,24 @@ async function numberAudioExists(lang: Language, n: number): Promise<boolean> {
     return ok;
   } catch {
     numberAudioExistsCache.set(key, false);
+    return false;
+  }
+}
+
+/**
+ * Проверить существование файла с кэшированием (для ordinals, window_suffix, go и т.д.)
+ */
+async function fileExists(url: string): Promise<boolean> {
+  const cached = fileExistsCache.get(url);
+  if (cached !== undefined) return cached;
+
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    const ok = res.ok;
+    fileExistsCache.set(url, ok);
+    return ok;
+  } catch {
+    fileExistsCache.set(url, false);
     return false;
   }
 }
@@ -107,22 +129,36 @@ export function isSoundEnabled(): boolean {
 
 /**
  * Предзагрузить аудио файлы
+ * Если файл уже в кэше, не ждём canplaythrough (быстро возвращаемся)
  */
 export async function preloadAudio(paths: string[]): Promise<void> {
   for (const path of paths) {
-    if (audioCache.has(path)) continue;
+    if (audioCache.has(path)) {
+      // Уже в кэше - не ждём, продолжаем
+      continue;
+    }
     
     try {
       const audio = new Audio(path);
       audio.preload = 'auto';
-      await new Promise<void>((resolve) => {
-        audio.addEventListener('canplaythrough', () => resolve(), { once: true });
-        audio.addEventListener('error', () => {
-          console.warn(`Failed to preload audio: ${path}`);
-          resolve(); // Продолжаем даже при ошибке предзагрузки
-        }, { once: true });
-        audio.load();
-      });
+      // Если файл уже загружен браузером, canplaythrough может сработать сразу
+      // Используем Promise.race с коротким таймаутом для быстрого возврата
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          if (audio.readyState >= 3) {
+            // HAVE_FUTURE_DATA или выше - можно играть
+            resolve();
+            return;
+          }
+          audio.addEventListener('canplaythrough', () => resolve(), { once: true });
+          audio.addEventListener('error', () => {
+            console.warn(`Failed to preload audio: ${path}`);
+            resolve(); // Продолжаем даже при ошибке предзагрузки
+          }, { once: true });
+          audio.load();
+        }),
+        new Promise<void>((resolve) => setTimeout(() => resolve(), 100)), // Максимум 100мс ожидания
+      ]);
       audioCache.set(path, audio);
     } catch (err) {
       console.warn(`Error preloading audio: ${path}`, err);
@@ -154,9 +190,17 @@ async function playOne(path: string): Promise<void> {
       audio.preload = 'auto';
     }
     
+    // Отслеживаем текущий аудио элемент для возможности прерывания
+    currentAudioElements.push(audio);
+    
     const handleEnd = () => {
       audio.removeEventListener('ended', handleEnd);
       audio.removeEventListener('error', handleError);
+      // Удаляем из списка активных
+      const index = currentAudioElements.indexOf(audio);
+      if (index > -1) {
+        currentAudioElements.splice(index, 1);
+      }
       resolve();
     };
     
@@ -164,6 +208,11 @@ async function playOne(path: string): Promise<void> {
       console.warn(`Audio file not found or failed to play: ${path}`, err);
       audio.removeEventListener('ended', handleEnd);
       audio.removeEventListener('error', handleError);
+      // Удаляем из списка активных
+      const index = currentAudioElements.indexOf(audio);
+      if (index > -1) {
+        currentAudioElements.splice(index, 1);
+      }
       resolve(); // Продолжаем даже при ошибке
     };
     
@@ -172,18 +221,56 @@ async function playOne(path: string): Promise<void> {
     
     audio.play().catch((err) => {
       console.warn(`Failed to play audio: ${path}`, err);
+      // Удаляем из списка активных
+      const index = currentAudioElements.indexOf(audio);
+      if (index > -1) {
+        currentAudioElements.splice(index, 1);
+      }
       resolve(); // Продолжаем даже при ошибке
     });
   });
 }
 
 /**
+ * Сбросить очередь воспроизведения и остановить текущее аудио (для повторов)
+ * Используется для немедленного начала повтора без ожидания текущего воспроизведения.
+ * Это устраняет задержки между словами при повторе вызова.
+ * 
+ * @param stopCurrent - если true, останавливает текущее воспроизведение
+ */
+export function resetAudioQueue({ stopCurrent = false }: { stopCurrent?: boolean } = {}): void {
+  // Останавливаем текущие аудио элементы
+  if (stopCurrent) {
+    currentAudioElements.forEach((audio) => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (err) {
+        // Игнорируем ошибки при остановке
+      }
+    });
+    currentAudioElements = [];
+  }
+  
+  // Сбрасываем очередь - создаём новую пустую цепочку
+  playQueue = Promise.resolve();
+}
+
+/**
  * Проиграть последовательность аудио файлов
  * @param paths - массив путей к аудио файлам
  * @param gaps - опциональный массив пауз для каждого файла (в мс), если не указан - используется DEFAULT_GAP_MS
+ * @param force - если true, сбрасывает очередь и останавливает текущее воспроизведение перед началом.
+ *                 Используется для повторов, чтобы избежать задержек от очереди предыдущих объявлений.
  */
-export async function playSequence(paths: string[], gaps?: number[]): Promise<void> {
+export async function playSequence(paths: string[], gaps?: number[], force = false): Promise<void> {
   if (!soundEnabled) return;
+  
+  // Если force=true, сбрасываем очередь и останавливаем текущее (для повторов)
+  // Это гарантирует, что повтор начинается сразу без ожидания предыдущих объявлений
+  if (force) {
+    resetAudioQueue({ stopCurrent: true });
+  }
   
   // Добавляем в очередь
   playQueue = playQueue.then(async () => {
@@ -267,11 +354,13 @@ function tokenizeTicket(ticketNo: string): string[] {
  * @param ticketNo - номер талона (например, "T-002", "R-001")
  * @param windowLabel - метка окна (например, "1", "2")
  * @param lang - язык озвучки
+ * @param force - если true, прерывает текущее воспроизведение и начинает сразу (для повторов)
  */
 export async function speakCall(
   ticketNo: string,
   windowLabel: string | null,
-  lang: Language
+  lang: Language,
+  force = false
 ): Promise<void> {
   if (!soundEnabled || !windowLabel) return;
   
@@ -329,19 +418,14 @@ if (normalized) {
     // Для узбекских языков используем порядковые числительные
     const windowNumInt = parseInt(windowNum, 10);
     if (windowNumInt >= 1 && windowNumInt <= 6) {
-      // Проверяем наличие ordinals/{window}.mp3
+      // Проверяем наличие ordinals/{window}.mp3 (с кэшированием)
       const ordinalPath = `/audio/${lang}/ordinals/${windowNumInt}.mp3`;
       let ordinalFound = false;
       
-      try {
-        const response = await fetch(ordinalPath, { method: 'HEAD' });
-        if (response.ok) {
-          audioPaths.push(ordinalPath);
-          gaps.push(DEFAULT_GAP_MS);
-          ordinalFound = true;
-        }
-      } catch {
-        // Продолжаем с fallback
+      if (await fileExists(ordinalPath)) {
+        audioPaths.push(ordinalPath);
+        gaps.push(DEFAULT_GAP_MS);
+        ordinalFound = true;
       }
       
       // Fallback: если ordinals отсутствует, используем digits
@@ -359,36 +443,24 @@ if (normalized) {
       }
     }
     
-    // 5. Суффикс окна (window_suffix.mp3 с fallback на window.mp3)
+    // 5. Суффикс окна (window_suffix.mp3 с fallback на window.mp3) - с кэшированием
     const windowSuffixPath = `/audio/${lang}/window_suffix.mp3`;
     const windowPath = `/audio/${lang}/window.mp3`;
     
-    try {
-      const response = await fetch(windowSuffixPath, { method: 'HEAD' });
-      if (response.ok) {
-        audioPaths.push(windowSuffixPath);
-        gaps.push(WINDOW_SUFFIX_GAP_MS);
-      } else {
-        // Fallback: используем window.mp3 если window_suffix.mp3 отсутствует
-        audioPaths.push(windowPath);
-        gaps.push(DEFAULT_GAP_MS);
-      }
-    } catch {
-      // При ошибке используем fallback
+    if (await fileExists(windowSuffixPath)) {
+      audioPaths.push(windowSuffixPath);
+      gaps.push(WINDOW_SUFFIX_GAP_MS);
+    } else {
+      // Fallback: используем window.mp3 если window_suffix.mp3 отсутствует
       audioPaths.push(windowPath);
       gaps.push(DEFAULT_GAP_MS);
     }
     
-    // 6. go.mp3 (опционально, если отсутствует - пропускаем)
+    // 6. go.mp3 (опционально, если отсутствует - пропускаем) - с кэшированием
     const goPath = `/audio/${lang}/go.mp3`;
-    try {
-      const response = await fetch(goPath, { method: 'HEAD' });
-      if (response.ok) {
-        audioPaths.push(goPath);
-        gaps.push(DEFAULT_GAP_MS);
-      }
-    } catch {
-      // Пропускаем go.mp3 если отсутствует
+    if (await fileExists(goPath)) {
+      audioPaths.push(goPath);
+      gaps.push(DEFAULT_GAP_MS);
     }
   } else {
     // ru: "окно" + номер окна цифрами
@@ -404,7 +476,8 @@ if (normalized) {
   // Предзагружаем все файлы перед воспроизведением
   await preloadAudio(audioPaths);
   
-  await playSequence(audioPaths, gaps);
+  // Используем force=true для повторов, чтобы прервать текущее воспроизведение
+  await playSequence(audioPaths, gaps, force);
 }
 
 /**

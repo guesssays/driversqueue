@@ -106,8 +106,13 @@ export function ScreensPage() {
       
       setLastEventKey(eventKey);
       
-      // Play announcement (добавится в очередь автоматически)
-      await speakCall(ticket.ticket_number, ticket.window_label, lang);
+      // Определяем, это повтор или первый вызов
+      const isRepeat = !!ticket.repeat_at;
+      
+      // Play announcement: используем force=true для повторов, чтобы прервать текущее воспроизведение
+      // и начать сразу без задержек. Это устраняет проблему с дополнительными паузами между словами
+      // при повторе, так как повтор не ждёт окончания предыдущих объявлений в очереди.
+      await speakCall(ticket.ticket_number, ticket.window_label, lang, isRepeat);
     };
 
     if (regCurrent) {
