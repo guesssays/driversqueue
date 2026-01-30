@@ -116,7 +116,7 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
   const [windowNumber, setWindowNumber] = useState<number | ''>(currentWindowNum || '');
 
   const handleSave = () => {
-    // Store window_label as plain number string "1".."6" (not "Окно 1" or "Oyna 1")
+    // Store window_label as plain number string "1".."9" (not "Окно 1" or "Oyna 1")
     // This will be extracted and formatted on frontend for display
     const windowLabel = windowNumber ? String(windowNumber) : null;
     onUpdate({
@@ -154,7 +154,7 @@ function UserRow({ user, onUpdate }: { user: Profile; onUpdate: (updates: Partia
               className="px-2 py-1 border rounded w-32"
             >
               <option value="">-</option>
-              {[1, 2, 3, 4, 5, 6].map((num) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                 <option key={num} value={num}>
                   Окно {num}
                 </option>

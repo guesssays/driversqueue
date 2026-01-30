@@ -24,7 +24,7 @@
 -- Example for operator:
 -- INSERT INTO profiles (id, role, window_label)
 -- VALUES ('USER_UUID', 'operator_queue', '1');
--- Note: window_label should be a plain number string '1'..'6', not 'Окно 1'
+-- Note: window_label should be a plain number string '1'..'9', not 'Окно 1'
 
 -- Example for reception:
 -- INSERT INTO profiles (id, role)
