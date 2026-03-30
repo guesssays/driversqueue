@@ -67,7 +67,7 @@ export function ProtectedRoute({ children, allowedRoles, fallbackPath }: Protect
   // Check role access
   if (!allowedRoles.includes(profile.role)) {
     // Redirect to fallback or default route
-    const redirectPath = fallbackPath || getDefaultRouteForRole(profile.role);
+    const redirectPath = fallbackPath || getDefaultRouteForRole();
     // Show message briefly via state, then redirect
     return (
       <Navigate
@@ -81,11 +81,6 @@ export function ProtectedRoute({ children, allowedRoles, fallbackPath }: Protect
   return <>{children}</>;
 }
 
-function getDefaultRouteForRole(role: string): string {
-  const routes: Record<string, string> = {
-    admin: '/dashboard',
-    operator_queue: '/operator/reg',
-    reception_security: '/issue',
-  };
-  return routes[role] || '/dashboard';
+function getDefaultRouteForRole(): string {
+  return '/';
 }

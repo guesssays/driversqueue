@@ -10,11 +10,13 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { useOffice } from '../../contexts/OfficeContext';
 import { useProfile } from '../../hooks/useProfile';
+import { buildOfficePath, buildOfficeScreenPath } from '../../lib/office-routing';
 import type { UserRole } from '../../types';
 
 interface MenuItem {
-  path: string;
+  path: (officeSlug: string) => string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
@@ -22,38 +24,38 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
-    path: '/dashboard',
-    label: 'Панель управления',
+    path: (officeSlug) => buildOfficePath(officeSlug, '/dashboard'),
+    label: 'РџР°РЅРµР»СЊ СѓРїСЂР°РІР»РµРЅРёСЏ',
     icon: LayoutDashboard,
     roles: ['admin'],
   },
   {
-    path: '/operator/reg',
-    label: 'Оператор (Регистрация)',
+    path: (officeSlug) => buildOfficePath(officeSlug, '/operator/reg'),
+    label: 'РћРїРµСЂР°С‚РѕСЂ (Р РµРіРёСЃС‚СЂР°С†РёСЏ)',
     icon: Users,
     roles: ['admin', 'operator_queue'],
   },
   {
-    path: '/operator/tech',
-    label: 'Оператор (Тех. вопросы)',
+    path: (officeSlug) => buildOfficePath(officeSlug, '/operator/tech'),
+    label: 'РћРїРµСЂР°С‚РѕСЂ (РўРµС…. РІРѕРїСЂРѕСЃС‹)',
     icon: Users,
     roles: ['admin', 'operator_queue'],
   },
   {
-    path: '/issue',
-    label: 'Выдача билетов',
+    path: (officeSlug) => buildOfficePath(officeSlug, '/issue'),
+    label: 'Р’С‹РґР°С‡Р° Р±РёР»РµС‚РѕРІ',
     icon: Ticket,
     roles: ['admin', 'reception_security'],
   },
   {
-    path: '/screens',
-    label: 'Табло',
+    path: (officeSlug) => buildOfficeScreenPath(officeSlug),
+    label: 'РўР°Р±Р»Рѕ',
     icon: Monitor,
     roles: ['admin', 'operator_queue', 'reception_security'],
   },
   {
-    path: '/settings',
-    label: 'Настройки',
+    path: (officeSlug) => buildOfficePath(officeSlug, '/settings'),
+    label: 'РќР°СЃС‚СЂРѕР№РєРё',
     icon: Settings,
     roles: ['admin'],
   },
@@ -68,19 +70,15 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: SidebarProps) {
   const { hasRole } = useProfile();
+  const { office } = useOffice();
   const location = useLocation();
 
-  // Filter items based on role
   const filteredItems = menuItems.filter((item) => hasRole(item.roles));
-
-  // All operators can access both queues now
-  const visibleItems = filteredItems;
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-        {!isCollapsed && <span className="font-bold text-lg">Меню</span>}
+        {!isCollapsed && <span className="font-bold text-lg">РњРµРЅСЋ</span>}
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleCollapse}
@@ -103,17 +101,17 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
         </div>
       </div>
 
-      {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto p-2">
         <ul className="space-y-1">
-          {visibleItems.map((item) => {
+          {filteredItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            const path = item.path(office.slug);
+            const isActive = location.pathname === path || location.pathname.startsWith(path + '/');
 
             return (
-              <li key={item.path}>
+              <li key={path}>
                 <NavLink
-                  to={item.path}
+                  to={path}
                   onClick={onClose}
                   className={clsx(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
@@ -121,7 +119,7 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
                     {
                       'bg-blue-50 text-blue-700 font-medium': isActive,
                       'text-gray-700': !isActive,
-                    }
+                    },
                   )}
                   title={isCollapsed ? item.label : undefined}
                 >
@@ -138,7 +136,6 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
 
   return (
     <>
-      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
@@ -146,7 +143,6 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={clsx(
           'fixed md:sticky top-16 left-0 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-50',
@@ -156,7 +152,7 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: Side
             'translate-x-0': isOpen,
             'w-64': !isCollapsed,
             'w-16': isCollapsed,
-          }
+          },
         )}
       >
         {sidebarContent}

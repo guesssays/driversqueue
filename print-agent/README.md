@@ -13,6 +13,7 @@ npm install
 ```bash
 export API_BASE_URL="https://your-site.netlify.app"
 export PRINT_SERVICE_SECRET="your-secret-key"
+export PRINT_SERVICE_OFFICE_SLUG="main"
 export PRINTER_BLUETOOTH_ADDRESS="00:11:22:33:44:55"  # Optional
 ```
 

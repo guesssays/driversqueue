@@ -35,3 +35,25 @@ export function jsonResponse(data: any, statusCode = 200): HandlerResponse {
 export function errorResponse(message: string, statusCode = 400): HandlerResponse {
   return jsonResponse({ error: message }, statusCode);
 }
+
+export class HttpError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'HttpError';
+    this.statusCode = statusCode;
+  }
+}
+
+export function toErrorResponse(error: unknown, fallbackMessage = 'Internal server error'): HandlerResponse {
+  if (error instanceof HttpError) {
+    return errorResponse(error.message, error.statusCode);
+  }
+
+  if (error instanceof Error) {
+    return errorResponse(error.message || fallbackMessage, 500);
+  }
+
+  return errorResponse(fallbackMessage, 500);
+}

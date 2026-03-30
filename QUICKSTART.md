@@ -19,9 +19,15 @@
 5. Copy the user's UUID (shown in the user list)
 6. Go to SQL Editor and run:
 ```sql
-INSERT INTO profiles (id, role)
-VALUES ('PASTE_UUID_HERE', 'admin');
+INSERT INTO profiles (id, role, default_office_id)
+VALUES (
+  'PASTE_UUID_HERE',
+  'admin',
+  '11111111-1111-4111-8111-111111111111'
+);
 ```
+
+Clean installs create the first office automatically with slug `main`.
 
 ## 3. Local Development
 
@@ -53,20 +59,22 @@ Visit http://localhost:3000 and log in with your admin credentials.
    - `SUPABASE_SERVICE_ROLE_KEY` = your service role key
    - `PRINT_SERVICE_ENABLED` = `false` (or `true` if using print-agent)
    - `PRINT_SERVICE_SECRET` = random secret string
+   - `PRINT_SERVICE_OFFICE_SLUG` = office slug for the local print-agent, for example `main`
 6. Deploy!
 
 ## 5. Create Additional Users
 
-After logging in as admin, go to `/queue/admin` to:
+After logging in as admin, go to `/:officeSlug/admin` (for example `/main/admin`) to:
 - Create users (create in Supabase Auth first, then assign role in admin panel)
 - Assign operators to queues
+- Assign users to one or more offices
 - Set window number (1-6) for operators - this will be displayed on TV screens
 - Configure system settings
 
 ### Setting Window Numbers
 
 For operators with role `operator_queue`, you can set a window number from 1 to 6:
-1. Go to `/admin` page
+1. Go to `/:officeSlug/admin` page
 2. Click "Редактировать" (Edit) for an operator user
 3. Select "Окно" (Window) dropdown and choose a number (1-6)
 4. Click "Сохранить" (Save)
@@ -76,14 +84,17 @@ The window number will be displayed on TV screens as "Oyna 1", "Oyna 2", etc. (U
 ## Key URLs
 
 - `/login` - Login page
-- `/dashboard` - Dashboard (admin only)
-- `/operator/reg` - Operator workspace for Registration queue
-- `/operator/tech` - Operator workspace for Technical queue
-- `/issue` - Issue tickets (reception_security role)
-- `/screens` - TV screens display
-- `/reports` - Reports (admin only)
-- `/admin` - User management (admin only)
-- `/settings` - System settings (admin only)
+- `/:officeSlug` - Redirect to the role-specific home page for that office
+- `/:officeSlug/dashboard` - Dashboard (admin only)
+- `/:officeSlug/operator/reg` - Operator workspace for Registration queue
+- `/:officeSlug/operator/tech` - Operator workspace for Technical queue
+- `/:officeSlug/issue` - Issue tickets (reception_security role)
+- `/screen/:officeSlug` - TV screens display
+- `/:officeSlug/reports` - Reports (admin only)
+- `/:officeSlug/admin` - User and office management (admin only)
+- `/:officeSlug/settings` - Office and system settings (admin only)
+
+Legacy routes without office slug still redirect, but new bookmarks and integrations should use the explicit office-aware routes.
 
 ## UI/UX Improvements
 
@@ -94,12 +105,11 @@ The application now features:
 - **Modern UI Components**: Consistent design with Tailwind CSS
 - **Error Handling**: Better error messages and loading states
 
-## RLS Fix
+## Existing Installation Migration
 
-If you see blank screen or 500 errors after login, run the migration:
-1. Go to Supabase Dashboard > SQL Editor
-2. Run the contents of `supabase/migrations/001_fix_profiles_rls.sql`
-3. This fixes recursive RLS policies that can cause errors
+If you already have a working single-office installation, apply:
+1. `supabase/migrations/005_add_multi_office_support.sql`
+2. This creates the `offices` and `profile_offices` model, backfills existing data into the bootstrap office, and updates the access policies
 
 ## Troubleshooting
 

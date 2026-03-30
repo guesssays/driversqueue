@@ -1,10 +1,24 @@
 import { supabase } from './supabase';
-import type { QueueType, ReportFilters, ReportData, Profile, SystemConfig } from '../types';
+import type {
+  AccessibleOfficesResponse,
+  Office,
+  Profile,
+  QueueIssueResponse,
+  QueuePrintPayload,
+  QueueTicketResponse,
+  QueueType,
+  ReportFilters,
+  ReportData,
+  ScreenState,
+  SystemConfig,
+} from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions';
 
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   const token = session?.access_token;
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -24,53 +38,79 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
   return response.json();
 }
 
-// Queue operations
+function buildOfficeQuery(params: { officeId?: string; officeSlug?: string; since?: string }): string {
+  const searchParams = new URLSearchParams();
+
+  if (params.officeId) {
+    searchParams.set('officeId', params.officeId);
+  }
+
+  if (params.officeSlug) {
+    searchParams.set('officeSlug', params.officeSlug);
+  }
+
+  if (params.since) {
+    searchParams.set('since', params.since);
+  }
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
 export const queueApi = {
-  issue: async (queueType: QueueType) => {
-    return apiCall<{ ticket: any; printUrl: string; printJobId?: string }>('/queue-issue', {
+  issue: async (params: { officeId: string; queueType: QueueType }) => {
+    return apiCall<QueueIssueResponse>('/queue-issue', {
       method: 'POST',
-      body: JSON.stringify({ queueType }),
+      body: JSON.stringify(params),
     });
   },
 
-  callNext: async (queueType: QueueType) => {
-    return apiCall<{ ticket: any }>('/queue-call-next', {
+  callNext: async (params: { officeId: string; queueType: QueueType }) => {
+    return apiCall<QueueTicketResponse>('/queue-call-next', {
       method: 'POST',
-      body: JSON.stringify({ queueType }),
+      body: JSON.stringify(params),
     });
   },
 
-  repeat: async (ticketId: string) => {
-    return apiCall<{ ticket: any }>('/queue-repeat', {
+  repeat: async (params: { officeId: string; ticketId: string }) => {
+    return apiCall<QueueTicketResponse>('/queue-repeat', {
       method: 'POST',
-      body: JSON.stringify({ ticketId }),
+      body: JSON.stringify(params),
     });
   },
 
-  finish: async (ticketId: string) => {
-    return apiCall<{ ticket: any }>('/queue-finish', {
+  finish: async (params: { officeId: string; ticketId: string }) => {
+    return apiCall<QueueTicketResponse>('/queue-finish', {
       method: 'POST',
-      body: JSON.stringify({ ticketId }),
+      body: JSON.stringify(params),
     });
   },
 
-  noShow: async (ticketId: string) => {
-    return apiCall<{ ticket: any }>('/queue-no-show', {
+  noShow: async (params: { officeId: string; ticketId: string }) => {
+    return apiCall<QueueTicketResponse>('/queue-no-show', {
       method: 'POST',
-      body: JSON.stringify({ ticketId }),
+      body: JSON.stringify(params),
     });
   },
 
-  getScreenState: async (since?: string) => {
-    const params = since ? `?since=${encodeURIComponent(since)}` : '';
-    return apiCall<any>(`/queue-screen-state${params}`);
+  getScreenState: async (params: { officeId?: string; officeSlug?: string; since?: string }) => {
+    return apiCall<ScreenState>(`/queue-screen-state${buildOfficeQuery(params)}`);
+  },
+
+  getPrintableTicket: async (params: { officeId: string; ticketId: string }) => {
+    const query = new URLSearchParams({
+      officeId: params.officeId,
+      ticketId: params.ticketId,
+    });
+
+    return apiCall<QueuePrintPayload>(`/queue-print-ticket?${query.toString()}`);
   },
 };
 
-// Reports
 export const reportApi = {
   getReport: async (filters: ReportFilters) => {
     const params = new URLSearchParams({
+      officeId: filters.officeId,
       from: filters.from,
       to: filters.to,
       ...(filters.queueType && { queueType: filters.queueType }),
@@ -81,12 +121,15 @@ export const reportApi = {
 
   getExcel: async (filters: ReportFilters) => {
     const params = new URLSearchParams({
+      officeId: filters.officeId,
       from: filters.from,
       to: filters.to,
       ...(filters.queueType && { queueType: filters.queueType }),
       ...(filters.operator && { operator: filters.operator }),
     });
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const token = session?.access_token;
 
     const response = await fetch(`${API_BASE}/queue-report-xlsx?${params}`, {
@@ -111,14 +154,18 @@ export const reportApi = {
   },
 };
 
-// Public config (read-only for all authenticated users)
 export const publicConfigApi = {
-  getConfig: async () => {
-    return apiCall<SystemConfig>('/public-config');
+  getConfig: async (params: { officeId?: string; officeSlug?: string }) => {
+    return apiCall<SystemConfig>(`/public-config${buildOfficeQuery(params)}`);
   },
 };
 
-// Admin operations
+export const officeApi = {
+  getAccessibleOffices: async () => {
+    return apiCall<AccessibleOfficesResponse>('/my-offices');
+  },
+};
+
 export const adminApi = {
   getUsers: async () => {
     return apiCall<Profile[]>('/admin-users');
@@ -131,14 +178,31 @@ export const adminApi = {
     });
   },
 
-  getConfig: async () => {
-    return apiCall<SystemConfig>('/admin-config');
+  getOffices: async () => {
+    return apiCall<Office[]>('/admin-offices');
   },
 
-  updateConfig: async (config: Partial<SystemConfig>) => {
+  saveOffice: async (data: Partial<Office> & Pick<Office, 'name' | 'code' | 'slug'>) => {
+    return apiCall<Office>('/admin-offices', {
+      method: 'POST',
+      body: JSON.stringify({
+        officeId: data.id,
+        name: data.name,
+        code: data.code,
+        slug: data.slug,
+        is_active: data.is_active,
+      }),
+    });
+  },
+
+  getConfig: async (officeId: string) => {
+    return apiCall<SystemConfig>(`/admin-config?officeId=${encodeURIComponent(officeId)}`);
+  },
+
+  updateConfig: async (officeId: string, config: Partial<SystemConfig>) => {
     return apiCall<SystemConfig>('/admin-config', {
       method: 'POST',
-      body: JSON.stringify(config),
+      body: JSON.stringify({ officeId, ...config }),
     });
   },
 };

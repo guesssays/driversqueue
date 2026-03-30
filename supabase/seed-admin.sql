@@ -8,8 +8,12 @@
 -- 5. Run this script in SQL Editor
 
 -- Example:
--- INSERT INTO profiles (id, role)
--- VALUES ('123e4567-e89b-12d3-a456-426614174000', 'admin');
+-- INSERT INTO profiles (id, role, default_office_id)
+-- VALUES (
+--   '123e4567-e89b-12d3-a456-426614174000',
+--   'admin',
+--   '11111111-1111-4111-8111-111111111111'
+-- );
 
 -- After running, you can log in with the email/password you created
 -- and manage other users through the admin panel at /queue/admin
@@ -22,10 +26,14 @@
 --    - 'operator_queue' - Can operate both REG and TECH queues (operator_queue_type should be NULL)
 
 -- Example for operator:
--- INSERT INTO profiles (id, role, window_label)
--- VALUES ('USER_UUID', 'operator_queue', '1');
+-- INSERT INTO profiles (id, role, default_office_id, window_label)
+-- VALUES ('USER_UUID', 'operator_queue', '11111111-1111-4111-8111-111111111111', '1');
 -- Note: window_label should be a plain number string '1'..'9', not 'Окно 1'
 
 -- Example for reception:
--- INSERT INTO profiles (id, role)
--- VALUES ('USER_UUID', 'reception_security');
+-- INSERT INTO profiles (id, role, default_office_id)
+-- VALUES (
+--   'USER_UUID',
+--   'reception_security',
+--   '11111111-1111-4111-8111-111111111111'
+-- );

@@ -1,8 +1,8 @@
 import { Handler } from '@netlify/functions';
-import { getUserFromRequest, requireRole } from './_shared/supabase';
-import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse, corsHeaders } from './_shared/utils';
 import { DateTime } from 'luxon';
+import { requireAccessibleOffice } from './_shared/offices';
+import { getUserFromRequest, requireRole, supabaseAdmin } from './_shared/supabase';
+import { corsHeaders, errorResponse, jsonResponse, toErrorResponse } from './_shared/utils';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -14,27 +14,32 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const auth = await getUserFromRequest(event as any);
+    const auth = await getUserFromRequest(event);
     if (!auth) {
       return errorResponse('Unauthorized', 401);
     }
 
     requireRole(auth.profile, ['admin']);
 
-    const url = new URL(event.rawUrl || `http://localhost${event.path}${event.rawQuery ? `?${event.rawQuery}` : ''}`);
+    const url = new URL(
+      event.rawUrl || `http://localhost${event.path}${event.rawQuery ? `?${event.rawQuery}` : ''}`,
+    );
+    const officeId = url.searchParams.get('officeId');
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
     const queueType = url.searchParams.get('queueType');
     const operator = url.searchParams.get('operator');
 
-    if (!from || !to) {
-      return errorResponse('Missing from/to parameters', 400);
+    if (!officeId || !from || !to) {
+      return errorResponse('Missing officeId/from/to parameters', 400);
     }
 
-    // Build query
+    const office = await requireAccessibleOffice(auth, officeId);
+
     let query = supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .gte('ticket_date', from)
       .lte('ticket_date', to);
 
@@ -53,41 +58,47 @@ export const handler: Handler = async (event) => {
       return errorResponse('Failed to fetch tickets', 500);
     }
 
-    // Calculate statistics
     const totalTickets = tickets?.length || 0;
     const byQueueType = {
-      REG: tickets?.filter(t => t.queue_type === 'REG').length || 0,
-      TECH: tickets?.filter(t => t.queue_type === 'TECH').length || 0,
+      REG: tickets?.filter((ticket) => ticket.queue_type === 'REG').length || 0,
+      TECH: tickets?.filter((ticket) => ticket.queue_type === 'TECH').length || 0,
     };
 
-    // Group by operator
     const operatorMap = new Map<string, { count: number; totalTime: number; timeCount: number }>();
-    
-    tickets?.forEach(ticket => {
-      if (ticket.operator_user_id) {
-        const existing = operatorMap.get(ticket.operator_user_id) || { count: 0, totalTime: 0, timeCount: 0 };
-        existing.count++;
-        
-        if (ticket.started_at && ticket.finished_at) {
-          const start = DateTime.fromISO(ticket.started_at);
-          const finish = DateTime.fromISO(ticket.finished_at);
-          const duration = finish.diff(start, 'seconds').seconds;
-          existing.totalTime += duration;
-          existing.timeCount++;
-        }
-        
-        operatorMap.set(ticket.operator_user_id, existing);
+
+    tickets?.forEach((ticket) => {
+      if (!ticket.operator_user_id) {
+        return;
       }
+
+      const existing = operatorMap.get(ticket.operator_user_id) || {
+        count: 0,
+        totalTime: 0,
+        timeCount: 0,
+      };
+      existing.count += 1;
+
+      if (ticket.started_at && ticket.finished_at) {
+        const start = DateTime.fromISO(ticket.started_at);
+        const finish = DateTime.fromISO(ticket.finished_at);
+        existing.totalTime += finish.diff(start, 'seconds').seconds;
+        existing.timeCount += 1;
+      }
+
+      operatorMap.set(ticket.operator_user_id, existing);
     });
 
-    // Get operator names
     const operatorIds = Array.from(operatorMap.keys());
-    const { data: profiles } = await supabaseAdmin
-      .from('profiles')
-      .select('id, window_label')
-      .in('id', operatorIds);
+    const { data: profiles } = operatorIds.length
+      ? await supabaseAdmin
+          .from('profiles')
+          .select('id, window_label')
+          .in('id', operatorIds)
+      : { data: [] as Array<{ id: string; window_label: string | null }> };
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p.window_label || 'Unknown']) || []);
+    const profileMap = new Map(
+      (profiles || []).map((profile) => [profile.id, profile.window_label || 'Unknown']),
+    );
 
     const byOperator = Array.from(operatorMap.entries()).map(([operatorId, stats]) => ({
       operator_id: operatorId,
@@ -97,13 +108,14 @@ export const handler: Handler = async (event) => {
     }));
 
     return jsonResponse({
+      office,
       totalTickets,
       byQueueType,
       byOperator,
       tickets: tickets || [],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in queue-report:', error);
-    return errorResponse(error.message || 'Internal server error', 500);
+    return toErrorResponse(error);
   }
 };

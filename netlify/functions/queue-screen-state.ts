@@ -1,6 +1,7 @@
 import { Handler } from '@netlify/functions';
+import { requirePublicOffice } from './_shared/offices';
 import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse, corsHeaders } from './_shared/utils';
+import { corsHeaders, jsonResponse, toErrorResponse } from './_shared/utils';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -12,13 +13,18 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const url = new URL(event.rawUrl || `http://localhost${event.path}${event.rawQuery ? `?${event.rawQuery}` : ''}`);
+    const url = new URL(
+      event.rawUrl || `http://localhost${event.path}${event.rawQuery ? `?${event.rawQuery}` : ''}`,
+    );
+    const officeId = url.searchParams.get('officeId');
+    const officeSlug = url.searchParams.get('officeSlug');
     const since = url.searchParams.get('since');
+    const office = await requirePublicOffice({ officeId, officeSlug });
 
-    // Get current serving tickets
     const { data: servingReg } = await supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .eq('queue_type', 'REG')
       .in('status', ['CALLED', 'SERVING'])
       .order('called_at', { ascending: false })
@@ -27,15 +33,16 @@ export const handler: Handler = async (event) => {
     const { data: servingTech } = await supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .eq('queue_type', 'TECH')
       .in('status', ['CALLED', 'SERVING'])
       .order('called_at', { ascending: false })
       .limit(1);
 
-    // Get waiting tickets
     const { data: waitingReg } = await supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .eq('queue_type', 'REG')
       .eq('status', 'WAITING')
       .order('created_at', { ascending: true })
@@ -44,15 +51,16 @@ export const handler: Handler = async (event) => {
     const { data: waitingTech } = await supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .eq('queue_type', 'TECH')
       .eq('status', 'WAITING')
       .order('created_at', { ascending: true })
       .limit(10);
 
-    // Get last calls (recently called tickets)
     let lastCallsQuery = supabaseAdmin
       .from('queue_tickets')
       .select('*')
+      .eq('office_id', office.id)
       .in('status', ['CALLED', 'SERVING', 'DONE', 'NO_SHOW'])
       .order('called_at', { ascending: false })
       .limit(20);
@@ -64,6 +72,12 @@ export const handler: Handler = async (event) => {
     const { data: lastCalls } = await lastCallsQuery;
 
     return jsonResponse({
+      office: {
+        id: office.id,
+        slug: office.slug,
+        code: office.code,
+        name: office.name,
+      },
       reg: {
         current: servingReg && servingReg.length > 0 ? servingReg[0] : null,
         waiting: waitingReg || [],
@@ -74,8 +88,8 @@ export const handler: Handler = async (event) => {
       },
       lastCalls: lastCalls || [],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in queue-screen-state:', error);
-    return errorResponse(error.message || 'Internal server error', 500);
+    return toErrorResponse(error);
   }
 };

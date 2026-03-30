@@ -1,4 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import type { HandlerEvent } from '@netlify/functions';
+import { createClient, type User } from '@supabase/supabase-js';
+import { HttpError } from './utils';
+
+export type UserRole = 'admin' | 'operator_queue' | 'reception_security';
+
+export interface AuthProfile {
+  id: string;
+  role: UserRole;
+  operator_queue_type: 'REG' | 'TECH' | null;
+  default_office_id: string | null;
+  window_label: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RequestAuth {
+  user: User;
+  profile: AuthProfile;
+}
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -14,15 +33,18 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-export async function getUserFromRequest(event: any): Promise<{ user: any; profile: any } | null> {
+export async function getUserFromRequest(event: HandlerEvent): Promise<RequestAuth | null> {
   const authHeader = event.headers?.authorization || event.headers?.Authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
 
   const token = authHeader.substring(7);
-  const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-  
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseAdmin.auth.getUser(token);
+
   if (userError || !user) {
     return null;
   }
@@ -37,11 +59,11 @@ export async function getUserFromRequest(event: any): Promise<{ user: any; profi
     return null;
   }
 
-  return { user, profile };
+  return { user, profile: profile as AuthProfile };
 }
 
-export function requireRole(profile: any, roles: string[]): void {
+export function requireRole(profile: AuthProfile, roles: UserRole[]): void {
   if (!roles.includes(profile.role)) {
-    throw new Error('Insufficient permissions');
+    throw new HttpError('Insufficient permissions', 403);
   }
 }

@@ -13,7 +13,7 @@ export function NotFound() {
         <p className="text-gray-600 mb-6">
           Запрашиваемая страница не существует или была перемещена.
         </p>
-        <Link to="/dashboard">
+        <Link to="/">
           <Button variant="primary">
             <Home className="h-4 w-4 mr-2" />
             На главную

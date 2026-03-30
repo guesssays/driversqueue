@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { queueApi } from '../lib/api';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
+import { Printer, Ticket } from 'lucide-react';
 import type { QueueType } from '../types';
-import { Ticket, Printer } from 'lucide-react';
+import { useOffice } from '../contexts/OfficeContext';
+import { queueApi } from '../lib/api';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 
 export function IssuePage() {
+  const { office } = useOffice();
   const [selectedQueue, setSelectedQueue] = useState<QueueType>('REG');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,31 +21,25 @@ export function IssuePage() {
     setError('');
 
     try {
-      // Wait for API call to complete and get ticket data
-      const result = await queueApi.issue(selectedQueue);
-      
-      // Ensure we have ticket ID before opening print window
+      const result = await queueApi.issue({
+        officeId: office.id,
+        queueType: selectedQueue,
+      });
+
       if (!result.ticket?.id) {
-        throw new Error('Не удалось получить ID билета');
+        throw new Error('РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ ID Р±РёР»РµС‚Р°');
       }
-      
+
       setLastTicket(result.ticket.ticket_number);
-      
-      // Open print page in new window with ticketId as query parameter
-      // Only open after ticket is successfully created
-      const printUrl = `${window.location.origin}/print?ticketId=${result.ticket.id}`;
-      window.open(printUrl, '_blank');
-      
-      // Refresh screen state
-      queryClient.invalidateQueries({ queryKey: ['screen-state'] });
-      
-      // Clear error after success
+      window.open(`${window.location.origin}${result.printUrl}`, '_blank');
+      queryClient.invalidateQueries({ queryKey: ['screen-state', office.id] });
+
       setTimeout(() => {
         setLoading(false);
         setLastTicket(null);
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Ошибка при выдаче билета');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'РћС€РёР±РєР° РїСЂРё РІС‹РґР°С‡Рµ Р±РёР»РµС‚Р°');
       setLoading(false);
     }
   };
@@ -51,15 +47,15 @@ export function IssuePage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Выдача билетов</h1>
-        <p className="text-gray-600">Выберите тип очереди и выдайте билет</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Р’С‹РґР°С‡Р° Р±РёР»РµС‚РѕРІ</h1>
+        <p className="text-gray-600">РћС„РёСЃ: {office.name}</p>
       </div>
 
       <Card>
         <div className="space-y-6">
           <div>
             <label className="block text-lg font-medium mb-4 text-gray-700">
-              Выберите тип очереди:
+              Р’С‹Р±РµСЂРёС‚Рµ С‚РёРї РѕС‡РµСЂРµРґРё:
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
@@ -72,7 +68,7 @@ export function IssuePage() {
               >
                 <div className="text-center">
                   <Ticket className="h-12 w-12 mx-auto mb-2" />
-                  <div className="text-xl font-semibold mb-1">Регистрация</div>
+                  <div className="text-xl font-semibold mb-1">Р РµРіРёСЃС‚СЂР°С†РёСЏ</div>
                   <Badge variant="info">R-XXX</Badge>
                 </div>
               </button>
@@ -86,7 +82,7 @@ export function IssuePage() {
               >
                 <div className="text-center">
                   <Ticket className="h-12 w-12 mx-auto mb-2" />
-                  <div className="text-xl font-semibold mb-1">Технические вопросы</div>
+                  <div className="text-xl font-semibold mb-1">РўРµС…РЅРёС‡РµСЃРєРёРµ РІРѕРїСЂРѕСЃС‹</div>
                   <Badge variant="success">T-XXX</Badge>
                 </div>
               </button>
@@ -102,7 +98,7 @@ export function IssuePage() {
           {lastTicket && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-green-700 font-medium">
-                Билет {lastTicket} успешно выдан!
+                Р‘РёР»РµС‚ {lastTicket} СѓСЃРїРµС€РЅРѕ РІС‹РґР°РЅ!
               </p>
             </div>
           )}
@@ -116,7 +112,7 @@ export function IssuePage() {
             isLoading={loading}
           >
             <Printer className="h-5 w-5 mr-2" />
-            Выдать билет {selectedQueue === 'REG' ? 'R' : 'T'}
+            Р’С‹РґР°С‚СЊ Р±РёР»РµС‚ {selectedQueue === 'REG' ? 'R' : 'T'}
           </Button>
         </div>
       </Card>

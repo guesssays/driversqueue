@@ -17,10 +17,12 @@ import BluetoothSerialPort from '@abandonware/bluetooth-serial-port';
 const API_BASE = process.env.API_BASE_URL || '';
 const PRINT_SECRET = process.env.PRINT_SERVICE_SECRET || '';
 const PRINTER_ADDRESS = process.env.PRINTER_BLUETOOTH_ADDRESS || '';
+const PRINT_OFFICE_ID = process.env.PRINT_SERVICE_OFFICE_ID || '';
+const PRINT_OFFICE_SLUG = process.env.PRINT_SERVICE_OFFICE_SLUG || '';
 const POLL_INTERVAL = 5000; // 5 seconds
 
-if (!API_BASE || !PRINT_SECRET) {
-  console.error('Missing required environment variables: API_BASE_URL, PRINT_SERVICE_SECRET');
+if (!API_BASE || !PRINT_SECRET || (!PRINT_OFFICE_ID && !PRINT_OFFICE_SLUG)) {
+  console.error('Missing required environment variables: API_BASE_URL, PRINT_SERVICE_SECRET, PRINT_SERVICE_OFFICE_ID or PRINT_SERVICE_OFFICE_SLUG');
   process.exit(1);
 }
 
@@ -57,6 +59,8 @@ async function fetchNextJob() {
     const response = await fetch(`${API_BASE}/.netlify/functions/printjobs-next`, {
       headers: {
         'X-Print-Secret': PRINT_SECRET,
+        ...(PRINT_OFFICE_ID && { 'X-Office-Id': PRINT_OFFICE_ID }),
+        ...(PRINT_OFFICE_SLUG && { 'X-Office-Slug': PRINT_OFFICE_SLUG }),
       },
     });
 
@@ -82,6 +86,8 @@ async function acknowledgeJob(jobId, success) {
       headers: {
         'Content-Type': 'application/json',
         'X-Print-Secret': PRINT_SECRET,
+        ...(PRINT_OFFICE_ID && { 'X-Office-Id': PRINT_OFFICE_ID }),
+        ...(PRINT_OFFICE_SLUG && { 'X-Office-Slug': PRINT_OFFICE_SLUG }),
       },
       body: JSON.stringify({ jobId, success }),
     });
@@ -106,6 +112,9 @@ async function printTicket(payload) {
     printer.alignCenter();
     printer.setTextSize(1, 1);
     printer.println('ЭЛЕКТРОННАЯ ОЧЕРЕДЬ');
+    if (ticketData.officeName) {
+      printer.println(ticketData.officeName);
+    }
     printer.drawLine();
     printer.newLine();
     

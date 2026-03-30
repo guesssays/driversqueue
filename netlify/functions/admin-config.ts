@@ -1,10 +1,15 @@
 import { Handler } from '@netlify/functions';
-import { getUserFromRequest, requireRole } from './_shared/supabase';
-import { supabaseAdmin } from './_shared/supabase';
-import { jsonResponse, errorResponse, corsHeaders } from './_shared/utils';
 import { z } from 'zod';
+import {
+  getOfficeScopedConfig,
+  requireAccessibleOffice,
+  saveOfficeScopedConfig,
+} from './_shared/offices';
+import { getUserFromRequest, requireRole } from './_shared/supabase';
+import { corsHeaders, errorResponse, jsonResponse, toErrorResponse } from './_shared/utils';
 
 const configSchema = z.object({
+  officeId: z.string().uuid(),
   logo_url: z.string().url().optional(),
   qr_enabled: z.boolean().optional(),
   retention_days: z.number().int().min(1).optional(),
@@ -22,7 +27,7 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const auth = await getUserFromRequest(event as any);
+    const auth = await getUserFromRequest(event);
     if (!auth) {
       return errorResponse('Unauthorized', 401);
     }
@@ -30,25 +35,21 @@ export const handler: Handler = async (event) => {
     requireRole(auth.profile, ['admin']);
 
     if (event.httpMethod === 'GET') {
-      const { data: configs, error } = await supabaseAdmin
-        .from('system_config')
-        .select('key, value');
+      const url = new URL(
+        event.rawUrl || `http://localhost${event.path}${event.rawQuery ? `?${event.rawQuery}` : ''}`,
+      );
+      const officeId = url.searchParams.get('officeId');
 
-      if (error) {
-        return errorResponse('Failed to fetch config', 500);
+      if (!officeId) {
+        return errorResponse('Missing officeId parameter', 400);
       }
 
-      const config: any = {};
-      configs?.forEach(item => {
-        config[item.key] = item.value;
-      });
+      const office = await requireAccessibleOffice(auth, officeId);
+      const config = await getOfficeScopedConfig(office.id);
 
       return jsonResponse({
-        logo_url: config.logo_url || 'https://via.placeholder.com/200x80?text=LOGO',
-        qr_enabled: config.qr_enabled ?? true,
-        retention_days: config.retention_days || 90,
-        timezone: config.timezone || 'Asia/Tashkent',
-        screens_lang: config.screens_lang || 'uzLat',
+        office,
+        ...config,
       });
     }
 
@@ -56,41 +57,25 @@ export const handler: Handler = async (event) => {
       const body = JSON.parse(event.body || '{}');
       const updates = configSchema.parse(body);
 
-      for (const [key, value] of Object.entries(updates)) {
-        await supabaseAdmin
-          .from('system_config')
-          .upsert({
-            key,
-            value,
-            updated_by: auth.user.id,
-          });
-      }
-
-      // Return updated config
-      const { data: configs } = await supabaseAdmin
-        .from('system_config')
-        .select('key, value');
-
-      const config: any = {};
-      configs?.forEach(item => {
-        config[item.key] = item.value;
+      const office = await requireAccessibleOffice(auth, updates.officeId);
+      const config = await saveOfficeScopedConfig({
+        officeId: office.id,
+        updatedBy: auth.user.id,
+        updates,
       });
 
       return jsonResponse({
-        logo_url: config.logo_url || 'https://via.placeholder.com/200x80?text=LOGO',
-        qr_enabled: config.qr_enabled ?? true,
-        retention_days: config.retention_days || 90,
-        timezone: config.timezone || 'Asia/Tashkent',
-        screens_lang: config.screens_lang || 'uzLat',
+        office,
+        ...config,
       });
     }
 
     return errorResponse('Method not allowed', 405);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in admin-config:', error);
     if (error instanceof z.ZodError) {
       return errorResponse(`Validation error: ${error.errors[0].message}`, 400);
     }
-    return errorResponse(error.message || 'Internal server error', 500);
+    return toErrorResponse(error);
   }
 };

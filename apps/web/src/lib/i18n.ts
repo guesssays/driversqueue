@@ -3,8 +3,6 @@
  * Supports: ru (Russian), uzLat (Uzbek Latin), uzCyr (Uzbek Cyrillic)
  */
 
-import { supabase } from './supabase';
-
 export type Language = 'ru' | 'uzLat' | 'uzCyr';
 
 export const translations: Record<Language, Record<string, string>> = {
@@ -130,48 +128,12 @@ export function getLangFromURL(): Language | null {
   return parseLang(urlLang);
 }
 
-/**
- * Get screens language from system_config
- */
-export async function getScreensLangFromConfig(): Promise<Language | null> {
-  try {
-    const { data, error } = await supabase
-      .from('system_config')
-      .select('value')
-      .eq('key', 'screens_lang')
-      .maybeSingle();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return parseLang(data.value);
-  } catch (err) {
-    console.error('Error reading screens_lang from config:', err);
-    return null;
-  }
-}
-
-/**
- * Resolve screens language with priority:
- * 1. URL ?lang= override (debug only)
- * 2. system_config.screens_lang
- * 3. fallback to uzLat
- */
 export async function resolveScreensLang(): Promise<Language> {
-  // Priority 1: URL override (for debug)
   const urlLang = getLangFromURL();
   if (urlLang) {
     return urlLang;
   }
 
-  // Priority 2: system_config
-  const configLang = await getScreensLangFromConfig();
-  if (configLang) {
-    return configLang;
-  }
-
-  // Priority 3: fallback
   return 'uzLat';
 }
 
@@ -180,25 +142,7 @@ export async function resolveScreensLang(): Promise<Language> {
  * @deprecated Use resolveScreensLang() for screens. This is kept for backward compatibility.
  */
 export function getLang(): Language {
-  if (typeof window === 'undefined') return 'uzLat';
-  
-  // Check URL parameter first
-  const params = new URLSearchParams(window.location.search);
-  const urlLang = params.get('lang');
-  if (urlLang === 'ru' || urlLang === 'uzLat' || urlLang === 'uzCyr') {
-    // Save to localStorage
-    localStorage.setItem('lang', urlLang);
-    return urlLang;
-  }
-  
-  // Check localStorage
-  const storedLang = localStorage.getItem('lang');
-  if (storedLang === 'ru' || storedLang === 'uzLat' || storedLang === 'uzCyr') {
-    return storedLang;
-  }
-  
-  // Default to uzLat
-  return 'uzLat';
+  return getLangFromURL() || 'uzLat';
 }
 
 /**

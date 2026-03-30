@@ -26,6 +26,10 @@ let currentAudioElements: HTMLAudioElement[] = []; // Track currently playing au
 
 const STORAGE_KEY = 'soundEnabled';
 
+function getStorageKey(scope?: string): string {
+  return scope ? `${STORAGE_KEY}:${scope}` : STORAGE_KEY;
+}
+
 // Кэш предзагруженных аудио элементов
 const audioCache = new Map<string, HTMLAudioElement>();
 
@@ -107,19 +111,19 @@ export async function initAudioUnlock(): Promise<void> {
 /**
  * Включить/выключить звук
  */
-export function setSoundEnabled(enabled: boolean): void {
+export function setSoundEnabled(enabled: boolean, scope?: string): void {
   soundEnabled = enabled;
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
+    localStorage.setItem(getStorageKey(scope), enabled ? '1' : '0');
   }
 }
 
 /**
  * Проверить, включен ли звук
  */
-export function isSoundEnabled(): boolean {
+export function isSoundEnabled(scope?: string): boolean {
   if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(getStorageKey(scope));
     if (stored !== null) {
       soundEnabled = stored === '1';
     }

@@ -1,13 +1,18 @@
 # Driver Electronic Queue System
 
-Production-ready browser-based electronic queue system for drivers with two independent queues (Registration and Technical Questions).
+Production-ready browser-based electronic queue system for drivers with two independent queues (Registration and Technical Questions) and strict multi-office isolation inside one installation.
 
 ## Features
 
 - **Two Independent Queues**
   - Queue A: Registration of new drivers (prefix "R")
   - Queue B: Technical questions for registered drivers (prefix "T")
-  
+- **Multi-Office Ready**
+  - One installation can serve multiple offices with explicit office scoping
+  - Office context is enforced in database, API, frontend routing, and live updates
+- **Role-Aware Office Access**
+  - Admins can switch between offices
+  - Office users only see the offices assigned to them
 - **Ticket Issuing** - Reception/security can issue tickets via web UI
 - **Operator Workspaces** - Operators see only their assigned queue
 - **TV Screens** - Internal/external screens showing queue status with auto-update
@@ -41,6 +46,8 @@ Production-ready browser-based electronic queue system for drivers with two inde
 2. Go to SQL Editor and run the schema from `supabase/schema.sql`
 3. Note your project URL and anon key from Settings > API
 4. Get your service role key from Settings > API (keep this secret!)
+
+For an existing single-office installation, do not reload the schema from scratch. Apply `supabase/migrations/005_add_multi_office_support.sql` to migrate the current office safely into the new office-aware model.
 
 ### 2. Local Development
 
@@ -83,11 +90,20 @@ After setting up Supabase:
 4. Copy the user's UUID
 5. Go to SQL Editor and run:
 ```sql
-INSERT INTO profiles (id, role)
-VALUES ('USER_UUID_HERE', 'admin');
+INSERT INTO profiles (id, role, default_office_id)
+VALUES (
+  'USER_UUID_HERE',
+  'admin',
+  '11111111-1111-4111-8111-111111111111'
+);
 ```
 
 Replace `USER_UUID_HERE` with the actual UUID from step 3.
+
+Clean installs bootstrap the first office automatically:
+- Office ID: `11111111-1111-4111-8111-111111111111`
+- Office code: `main`
+- Office slug: `main`
 
 Now you can log in with this admin account and manage other users through the admin panel.
 
@@ -110,6 +126,7 @@ Now you can log in with this admin account and manage other users through the ad
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    PRINT_SERVICE_ENABLED=false
    PRINT_SERVICE_SECRET=your-random-secret-key
+   PRINT_SERVICE_OFFICE_SLUG=main
    ```
 
 5. Deploy!
@@ -120,9 +137,9 @@ If you encounter CORS issues, add your Netlify site URL to Supabase Dashboard > 
 
 ## User Roles
 
-- **admin**: Full access - manage users/roles, view all reports, system config
-- **reception_security**: Issue tickets + print, view basic live queue lists
-- **operator_queue**: Access only their assigned queue operator panel (call/finish/no-show/repeat)
+- **admin**: Full access across all offices, can switch office context, manage users/offices/settings
+- **reception_security**: Issue tickets and print inside assigned office context
+- **operator_queue**: Access operator panel inside assigned office context
 
 ## Queue Behavior
 
@@ -160,13 +177,18 @@ The system supports two printing modes:
 ## Pages
 
 - `/login` - User authentication
-- `/queue/issue` - Issue tickets (reception_security)
-- `/queue/operator` - Operator workspace
-- `/queue/reports` - Reports with filters (admin)
-- `/queue/admin` - User and system management (admin)
-- `/queue/print/:ticketId` - Print ticket view
-- `/queue/screens/internal` - Internal TV screen
-- `/queue/screens/external` - External TV screen
+- `/:officeSlug` - Redirect to the role-specific home page for the selected office
+- `/:officeSlug/dashboard` - Dashboard (admin)
+- `/:officeSlug/issue` - Issue tickets (admin, reception_security)
+- `/:officeSlug/operator/:queueType` - Operator workspace for `reg` or `tech` (admin, operator_queue)
+- `/:officeSlug/reports` - Reports with filters and export (admin)
+- `/:officeSlug/admin` - Users and offices management (admin)
+- `/:officeSlug/settings` - Office and global settings (admin)
+- `/:officeSlug/print` - Browser print page for the selected office
+- `/screen/:officeSlug` - Public queue screen (internal mode by default)
+- `/screen/:officeSlug/:mode` - Public queue screen for `internal` or `external`
+
+Legacy routes like `/queue/issue` and `/queue/screens/internal` still redirect into the current office, but new integrations should always use the explicit office-aware routes above.
 
 ## Screens Configuration
 
@@ -191,7 +213,7 @@ TV screens auto-update every 1-2 seconds via polling. They show:
 
 ### Setting Window Numbers
 
-In the Admin panel (`/admin`):
+In the Admin panel (`/:officeSlug/admin`):
 1. Edit an operator user (role: `operator_queue`)
 2. Select window number from dropdown (1-6)
 3. Window will be displayed on screens as "Oyna N" (Uzbek) or "Окно N" (Russian)
@@ -225,6 +247,7 @@ Reports include:
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (keep secret!)
 - `PRINT_SERVICE_ENABLED` - Enable print service integration (true/false)
 - `PRINT_SERVICE_SECRET` - Secret key for print-agent authentication
+- `PRINT_SERVICE_OFFICE_SLUG` - Office slug used by the local print-agent when polling jobs
 
 ## Troubleshooting
 
